@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../models/anime_item.dart';
 import '../services/catalog_service.dart';
 import '../services/saved.dart';
+import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/anime_card.dart';
 import 'player_screen.dart';
@@ -94,6 +96,7 @@ class _DetailScreenState extends State<DetailScreen> {
     final hasSub = detail.subEps > 0;
     final hasDub = detail.dubEps > 0;
     final episodes = detail.episodes;
+    final defaultDub = context.read<AppState>().audioMode == AudioMode.dub;
 
     return CustomScrollView(
       slivers: [
@@ -146,6 +149,7 @@ class _DetailScreenState extends State<DetailScreen> {
                 return _EpisodeRow(
                   episode: episodes[index],
                   hasDub: hasDub,
+                  defaultDub: defaultDub,
                   onTap: (dub) => _play(context, item, episodes[index], dub),
                 );
               },
@@ -194,6 +198,36 @@ class _DetailScreenState extends State<DetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (detail.coverUrl != null && detail.coverUrl!.isNotEmpty) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppRadius.card),
+              child: SizedBox(
+                width: double.infinity,
+                height: MediaQuery.of(context).size.width * 9 / 16,
+                child: Image.network(
+                  detail.coverUrl!,
+                  fit: BoxFit.cover,
+                  filterQuality: FilterQuality.high,
+                  loadingBuilder: (context, child, progress) => progress == null
+                      ? child
+                      : Container(
+                          color: context.appSurfaceVariant,
+                          alignment: Alignment.center,
+                          child: SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: context.appAccent,
+                            ),
+                          ),
+                        ),
+                  errorBuilder: (context, error, stack) => const SizedBox.shrink(),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
           Text(
             item.title,
             style: context.appTextTheme.displayMedium?.copyWith(
@@ -274,11 +308,13 @@ class _EpisodeRow extends StatelessWidget {
   const _EpisodeRow({
     required this.episode,
     required this.hasDub,
+    required this.defaultDub,
     required this.onTap,
   });
 
   final Episode episode;
   final bool hasDub;
+  final bool defaultDub;
   final void Function(bool dub) onTap;
 
   @override
@@ -290,7 +326,7 @@ class _EpisodeRow extends StatelessWidget {
         Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: () => onTap(false),
+            onTap: () => onTap(defaultDub),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: Row(
@@ -343,7 +379,7 @@ if (subActive) ...[
                         borderRadius: BorderRadius.circular(AppRadius.chip),
                       ),
                       child: Text(
-                        'PLAY',
+                        'SUB',
                         style: context.appTextTheme.labelSmall?.copyWith(
                           fontSize: 9,
                           color: context.appOnAccent,

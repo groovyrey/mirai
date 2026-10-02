@@ -63,12 +63,10 @@ class _ShellScaffold extends StatelessWidget {
     ];
 
     return Scaffold(
+      drawer: _Drawer(selected: index, onSelect: onTab),
       body: Column(
         children: [
-          _Header(
-            onTab: onTab,
-            selected: index,
-          ),
+          _Header(onTab: onTab),
           Expanded(
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 240),
@@ -83,9 +81,8 @@ class _ShellScaffold extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.selected, required this.onTab});
+  const _Header({required this.onTab});
 
-  final int selected;
   final ValueChanged<int> onTab;
 
   @override
@@ -95,11 +92,23 @@ class _Header extends StatelessWidget {
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
           child: Column(
             children: [
               Row(
                 children: [
+                  IconButton(
+                    onPressed: () => Scaffold.of(context).openDrawer(),
+                    padding: EdgeInsets.zero,
+                    constraints:
+                        const BoxConstraints(minWidth: 36, minHeight: 36),
+                    icon: Icon(
+                      Icons.menu_rounded,
+                      color: context.appOnSurfaceVariant,
+                    ),
+                    tooltip: 'Menu',
+                  ),
+                  const Spacer(),
                   const MiraiWordmark(size: 20),
                   const Spacer(),
                   GestureDetector(
@@ -114,24 +123,8 @@ class _Header extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
               const Divider(height: 1, thickness: 1),
-              SizedBox(
-                height: 52,
-                child: Row(
-                  children: [
-                    for (var i = 0; i < _AppShellState._tabs.length; i++)
-                      Expanded(
-                        child: _TabButton(
-                          label: _AppShellState._tabs[i].label,
-                          icon: _AppShellState._tabs[i].icon,
-                          selected: selected == i,
-                          onTap: () => onTab(i),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
             ],
           ),
         ),
@@ -140,8 +133,42 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _TabButton extends StatelessWidget {
-  const _TabButton({
+class _Drawer extends StatelessWidget {
+  const _Drawer({required this.selected, required this.onSelect});
+
+  final int selected;
+  final ValueChanged<int> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      backgroundColor: context.appBackground,
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 18),
+              child: MiraiWordmark(size: 20),
+            ),
+            const Divider(height: 1, thickness: 1),
+            const SizedBox(height: 8),
+            for (var i = 0; i < _AppShellState._tabs.length; i++)
+              _DrawerItem(
+                label: _AppShellState._tabs[i].label,
+                icon: _AppShellState._tabs[i].icon,
+                selected: selected == i,
+                onTap: () => onSelect(i),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DrawerItem extends StatelessWidget {
+  const _DrawerItem({
     required this.label,
     required this.icon,
     required this.selected,
@@ -155,24 +182,30 @@ class _TabButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final activeColor = selected ? context.appAccent : context.appOnSurfaceVariant;
-    return InkResponse(
-      onTap: onTap,
-      radius: 28,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 20, color: selected ? activeColor : null),
-          const SizedBox(height: 4),
-          Text(
-            label.toUpperCase(),
-            style: context.appTextTheme.labelSmall?.copyWith(
-              fontSize: 9,
-              letterSpacing: 1.2,
-              color: activeColor,
-            ),
+    final activeColor =
+        selected ? context.appAccent : context.appOnSurfaceVariant;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          child: Row(
+            children: [
+              Icon(icon, size: 20, color: selected ? activeColor : null),
+              const SizedBox(width: 16),
+              Text(
+                label.toUpperCase(),
+                style: context.appTextTheme.labelSmall?.copyWith(
+                  fontSize: 12,
+                  letterSpacing: 1.5,
+                  color: activeColor,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

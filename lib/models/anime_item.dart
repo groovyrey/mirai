@@ -71,6 +71,7 @@ class AnimeDetail {
   const AnimeDetail({
     required this.item,
     this.synopsis,
+    this.coverUrl,
     this.aired,
     this.duration,
     this.status,
@@ -94,6 +95,7 @@ class AnimeDetail {
 
   final AnimeItem item;
   final String? synopsis;
+  final String? coverUrl;
   final String? aired;
   final String? duration;
   final String? status;
@@ -119,6 +121,7 @@ class AnimeDetail {
   Map<String, dynamic> toJson() => {
         'item': item.toJson(),
         'synopsis': synopsis,
+        'coverUrl': coverUrl,
         'aired': aired,
         'duration': duration,
         'status': status,
@@ -147,6 +150,7 @@ class AnimeDetail {
             ? AnimeItem.fromJson(json['item'] as Map<String, dynamic>)
             : AnimeItem.fromJson(json),
         synopsis: json['synopsis'] as String?,
+        coverUrl: json['coverUrl'] as String?,
         aired: json['aired'] as String?,
         duration: json['duration'] as String?,
         status: json['status'] as String?,
