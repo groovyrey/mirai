@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import 'screens/shell.dart';
 import 'state/app_state.dart';
 import 'theme/app_theme.dart';
-import 'widgets/mirai_wordmark.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -228,7 +227,7 @@ class _SplashScreenState extends State<SplashScreen>
                                 -0.5 + 3 * _shimmer.value, 0),
                             colors: [
                               Colors.transparent,
-                              context.appAccent.withOpacity(0.15),
+                              context.appAccent.withValues(alpha: 0.15),
                               Colors.transparent,
                             ],
                             stops: const [0.0, 0.5, 1.0],

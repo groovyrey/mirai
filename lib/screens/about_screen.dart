@@ -4,6 +4,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../theme/app_theme.dart';
+import '../widgets/anime_card.dart';
 
 /// About Mirai: purpose, sources, and the developer.
 class AboutScreen extends StatelessWidget {
@@ -110,7 +111,14 @@ class AboutScreen extends StatelessWidget {
           const SizedBox(height: 14),
           const Center(child: _VersionPill()),
           const SizedBox(height: 30),
-          SurfaceCard(
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: context.appSurface,
+              borderRadius: BorderRadius.circular(AppRadius.card),
+              border: Border.all(color: AppColors.cardBorder),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -144,8 +152,13 @@ class AboutScreen extends StatelessWidget {
           const SizedBox(height: 30),
           _sectionLabel(context, 'What Mirai does'),
           const SizedBox(height: 12),
-          SurfaceCard(
-            padding: const EdgeInsets.all(0),
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: context.appSurface,
+              borderRadius: BorderRadius.circular(AppRadius.card),
+              border: Border.all(color: AppColors.cardBorder),
+            ),
             child: Column(
               children: [
                 for (var i = 0; i < _features.length; i++) ...[
@@ -158,8 +171,13 @@ class AboutScreen extends StatelessWidget {
           const SizedBox(height: 30),
           _sectionLabel(context, 'Playback sources'),
           const SizedBox(height: 12),
-          SurfaceCard(
-            padding: const EdgeInsets.all(0),
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: context.appSurface,
+              borderRadius: BorderRadius.circular(AppRadius.card),
+              border: Border.all(color: AppColors.cardBorder),
+            ),
             child: Column(
               children: [
                 for (var i = 0; i < _sources.length; i++) ...[
@@ -170,8 +188,14 @@ class AboutScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 34),
-          SurfaceCard(
+          Container(
+            width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            decoration: BoxDecoration(
+              color: context.appSurface,
+              borderRadius: BorderRadius.circular(AppRadius.card),
+              border: Border.all(color: AppColors.cardBorder),
+            ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -190,8 +214,14 @@ class AboutScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 22),
-          SurfaceCard(
+          Container(
+            width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+            decoration: BoxDecoration(
+              color: context.appSurface,
+              borderRadius: BorderRadius.circular(AppRadius.card),
+              border: Border.all(color: AppColors.cardBorder),
+            ),
             child: Column(
               children: [
                 Text(

@@ -118,7 +118,7 @@ class _DetailScreenState extends State<DetailScreen> {
     final episodes = detail.episodes;
     final app = context.watch<AppState>();
     final defaultDub = app.audioMode == AudioMode.dub;
-    final prefSv = app.preferredSv(item.id);
+    final prefSv = app.preferredSv(item.id.toString());
 
     return CustomScrollView(
       slivers: [
@@ -191,7 +191,7 @@ class _DetailScreenState extends State<DetailScreen> {
     final hasSub = detail.subEps > 0;
     final hasDub = detail.dubEps > 0;
     final maxEp = detail.subEps > detail.dubEps ? detail.subEps : detail.dubEps;
-    final prefSv = app.preferredSv(item.id);
+    final prefSv = app.preferredSv(item.id.toString());
     final children = <Widget>[
       if (detail.coverUrl != null && detail.coverUrl!.isNotEmpty) ...[
         ClipRRect(
@@ -446,7 +446,7 @@ class _DetailScreenState extends State<DetailScreen> {
   /// available episode so the choice is immediately felt.
   void _selectSource(BuildContext context, AnimeItem item, int? sv) {
     final app = context.read<AppState>();
-    app.setPreferredSv(item.id, sv);
+    app.setPreferredSv(item.id.toString(), sv);
     final episodes = _detail!.episodes;
     if (episodes.isEmpty) return;
     _play(context, item, episodes.first, app.audioMode == AudioMode.dub,

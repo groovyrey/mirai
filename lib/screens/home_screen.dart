@@ -26,8 +26,8 @@ class _HomeScreenState extends State<HomeScreen> {
   List<AnimeItem>? _lead;
   List<AnimeItem>? _rail;
   List<AnimeItem>? _newest;
-  List<WatchHistory.HistoryEntry>? _continueWatching;
-  List<Saved.SavedEntry>? _queue;
+  List<HistoryEntry>? _continueWatching;
+  List<SavedEntry>? _queue;
   String? _error;
 
   @override
@@ -323,7 +323,7 @@ class _ContinueCard extends StatelessWidget {
     required this.onTap,
   });
 
-  final WatchHistory.HistoryEntry entry;
+  final HistoryEntry entry;
   final VoidCallback onTap;
 
   @override
@@ -344,9 +344,12 @@ class _ContinueCard extends StatelessWidget {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(AppRadius.card),
                     child: Image.network(
-                      entry.item.image,
+                      entry.item.image ?? '',
                       fit: BoxFit.cover,
                       filterQuality: FilterQuality.high,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: context.appSurfaceVariant,
+                      ),
                     ),
                   ),
                 ),
@@ -358,7 +361,7 @@ class _ContinueCard extends StatelessWidget {
                     child: Container(
                       height: 4,
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.5),
+                        color: Colors.black.withValues(alpha: 0.5),
                         borderRadius: const BorderRadius.vertical(
                           bottom: Radius.circular(AppRadius.card),
                         ),
@@ -439,9 +442,12 @@ class _QueueCard extends StatelessWidget {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(AppRadius.card),
                 child: Image.network(
-                  detail.item.image,
+                  detail.item.image ?? '',
                   fit: BoxFit.cover,
                   filterQuality: FilterQuality.high,
+                  errorBuilder: (_, __, ___) => Container(
+                    color: context.appSurfaceVariant,
+                  ),
                 ),
               ),
             ),
