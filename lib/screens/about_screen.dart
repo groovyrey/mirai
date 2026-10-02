@@ -4,7 +4,6 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../theme/app_theme.dart';
-import '../widgets/anime_card.dart';
 
 /// About Mirai: purpose, sources, and the developer.
 class AboutScreen extends StatelessWidget {

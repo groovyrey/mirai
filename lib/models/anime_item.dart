@@ -118,6 +118,16 @@ class AnimeDetail {
 
   bool get hasEpisodes => episodes.isNotEmpty;
 
+  /// Returns the first episode available (typically EP 1), used for queue display.
+  Episode? get nextEpisode {
+    if (episodes.isEmpty) return null;
+    // Prefer first episode with sub, fallback to first episode
+    return episodes.firstWhere(
+      (e) => e.sub,
+      orElse: () => episodes.first,
+    );
+  }
+
   Map<String, dynamic> toJson() => {
         'item': item.toJson(),
         'synopsis': synopsis,
