@@ -73,7 +73,19 @@ class AnimeDetail {
     this.synopsis,
     this.aired,
     this.duration,
+    this.status,
+    this.quality,
+    this.ageRating,
+    this.premiered,
+    this.broadcast,
+    this.country,
+    this.source,
+    this.reviews,
     this.otherNames = const [],
+    this.genres = const [],
+    this.studios = const [],
+    this.producers = const [],
+    this.licensors = const [],
     this.totalEps = 0,
     this.subEps = 0,
     this.dubEps = 0,
@@ -84,7 +96,19 @@ class AnimeDetail {
   final String? synopsis;
   final String? aired;
   final String? duration;
+  final String? status;
+  final String? quality;
+  final String? ageRating;
+  final String? premiered;
+  final String? broadcast;
+  final String? country;
+  final String? source;
+  final String? reviews;
   final List<String> otherNames;
+  final List<String> genres;
+  final List<String> studios;
+  final List<String> producers;
+  final List<String> licensors;
   final int totalEps;
   final int subEps;
   final int dubEps;
@@ -97,7 +121,19 @@ class AnimeDetail {
         'synopsis': synopsis,
         'aired': aired,
         'duration': duration,
+        'status': status,
+        'quality': quality,
+        'ageRating': ageRating,
+        'premiered': premiered,
+        'broadcast': broadcast,
+        'country': country,
+        'source': source,
+        'reviews': reviews,
         'otherNames': otherNames,
+        'genres': genres,
+        'studios': studios,
+        'producers': producers,
+        'licensors': licensors,
         'totalEps': totalEps,
         'subEps': subEps,
         'dubEps': dubEps,
@@ -113,7 +149,19 @@ class AnimeDetail {
         synopsis: json['synopsis'] as String?,
         aired: json['aired'] as String?,
         duration: json['duration'] as String?,
+        status: json['status'] as String?,
+        quality: json['quality'] as String?,
+        ageRating: json['ageRating'] as String?,
+        premiered: json['premiered'] as String?,
+        broadcast: json['broadcast'] as String?,
+        country: json['country'] as String?,
+        source: json['source'] as String?,
+        reviews: json['reviews'] as String?,
         otherNames: (json['otherNames'] as List?)?.cast<String>() ?? const [],
+        genres: (json['genres'] as List?)?.cast<String>() ?? const [],
+        studios: (json['studios'] as List?)?.cast<String>() ?? const [],
+        producers: (json['producers'] as List?)?.cast<String>() ?? const [],
+        licensors: (json['licensors'] as List?)?.cast<String>() ?? const [],
         totalEps: json['totalEps'] as int? ?? 0,
         subEps: json['subEps'] as int? ?? 0,
         dubEps: json['dubEps'] as int? ?? 0,

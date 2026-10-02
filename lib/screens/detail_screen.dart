@@ -158,6 +158,37 @@ class _DetailScreenState extends State<DetailScreen> {
   Widget _summary(BuildContext context, AnimeItem item, AnimeDetail detail) {
     final hasSub = detail.subEps > 0;
     final hasDub = detail.dubEps > 0;
+    final maxEp = detail.subEps > detail.dubEps ? detail.subEps : detail.dubEps;
+    final chips = <String>[
+      if (hasSub) 'S${detail.subEps}',
+      if (hasDub) 'D${detail.dubEps}',
+      if (detail.totalEps > 0 && detail.totalEps != maxEp)
+        '${detail.totalEps} EPS',
+      if (item.rating != null && item.rating!.isNotEmpty) '${item.rating}★',
+      if (item.type != null && item.type!.isNotEmpty) item.type!,
+      if (detail.ageRating != null && detail.ageRating!.isNotEmpty)
+        detail.ageRating!,
+      if (detail.quality != null && detail.quality!.isNotEmpty) detail.quality!,
+      if (detail.status != null && detail.status!.isNotEmpty) detail.status!,
+      if (detail.premiered != null && detail.premiered!.isNotEmpty)
+        detail.premiered!,
+      if (detail.country != null && detail.country!.isNotEmpty) detail.country!,
+      if (detail.source != null && detail.source!.isNotEmpty)
+        'Source ${detail.source}',
+      if (detail.duration != null && detail.duration!.isNotEmpty)
+        detail.duration!,
+      if (detail.aired != null && detail.aired!.isNotEmpty)
+        'Aired ${detail.aired}',
+      if (detail.broadcast != null && detail.broadcast!.isNotEmpty)
+        'Broadcast ${detail.broadcast}',
+      if (detail.reviews != null && detail.reviews!.isNotEmpty)
+        '${detail.reviews} ratings',
+      for (final g in detail.genres) g,
+      for (final s in detail.studios) s,
+      for (final p in detail.producers) p,
+      for (final l in detail.licensors) l,
+    ];
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
       child: Column(
@@ -180,20 +211,23 @@ class _DetailScreenState extends State<DetailScreen> {
               ),
             ),
           ],
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              if (hasSub) _chip(context, 'S${detail.subEps}'),
-              if (hasDub) _chip(context, 'D${detail.dubEps}'),
-              if (detail.totalEps > 0) _chip(context, '${detail.totalEps} EPS'),
-              if (item.rating != null && item.rating!.isNotEmpty)
-                _chip(context, '${item.rating}★'),
-              if (item.type != null && item.type!.isNotEmpty)
-                _chip(context, item.type!),
-            ],
-          ),
+          if (detail.synopsis != null && detail.synopsis!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              detail.synopsis!,
+              style: context.appTextTheme.bodyMedium?.copyWith(
+                color: context.appOnSurfaceVariant,
+              ),
+            ),
+          ],
+          if (chips.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [for (final c in chips) _chip(context, c)],
+            ),
+          ],
         ],
       ),
     );
