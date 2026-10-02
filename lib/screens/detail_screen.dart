@@ -322,10 +322,10 @@ if (subActive) ...[
             ),
           ),
         ),
-        const Divider(
+        Divider(
           height: 1,
           thickness: 1,
-          color: context.appOutlineVariant,
+          color: context.appOutline,
         ),
       ],
     );
