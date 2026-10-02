@@ -159,7 +159,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
   }
 
-  String get _embedWrapUrl() =>
+  String _embedWrapUrl() =>
       aniwavesEmbedUrl(id: widget.item.id, slug: widget.item.slug, ep: widget.ep);
 
   /// Native-first. The worker picks the best server for the episode: when

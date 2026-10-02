@@ -9,6 +9,7 @@ import '../services/version_checker.dart';
 import '../services/watch_history.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
+import '../widgets/anime_card.dart';
 
 /// More: settings and about in one editorial column. The update banner and the
 /// version-settings row live here; the header in the shell shows the version.
@@ -261,9 +262,10 @@ class _MoreScreenState extends State<MoreScreen> {
   }
 
   Future<void> _clearHistory(BuildContext context) async {
-    if (context.read<WatchHistory>().entries.isEmpty) return;
+    final history = context.read<WatchHistory>();
+    if (history.entries.isEmpty) return;
     final yes = await _confirm(context, 'Clear watch history?');
-    if (yes) await context.read<WatchHistory>().clear();
+    if (yes) await history.clear();
   }
 
   Future<bool> _confirm(BuildContext context, String message) async {

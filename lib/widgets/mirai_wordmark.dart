@@ -20,7 +20,7 @@ class MiraiWordmark extends StatelessWidget {
           height: size * 0.9,
           color: context.appAccent,
         ),
-        const SizedBox(width: size * 0.12),
+        SizedBox(width: size * 0.12),
         Text(
           'MIRAI',
           style: context.appTextTheme.displayMedium?.copyWith(

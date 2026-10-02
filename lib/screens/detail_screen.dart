@@ -156,6 +156,8 @@ class _DetailScreenState extends State<DetailScreen> {
   }
 
   Widget _summary(BuildContext context, AnimeItem item, AnimeDetail detail) {
+    final hasSub = detail.subEps > 0;
+    final hasDub = detail.dubEps > 0;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
       child: Column(
@@ -173,7 +175,7 @@ class _DetailScreenState extends State<DetailScreen> {
             const SizedBox(height: 6),
             Text(
               item.originalTitle!,
-              style: context.appTextTheme.bodyMedium.copyWith(
+              style: context.appTextTheme.bodyMedium?.copyWith(
                 color: context.appOnSurfaceVariant,
               ),
             ),
@@ -298,27 +300,34 @@ class _EpisodeRow extends StatelessWidget {
                       ),
                     ),
 if (subActive) ...[
-            const SizedBox(width: 8),
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: context.appAccent,
-                borderRadius: BorderRadius.circular(AppRadius.chip),
-              ),
-              child: Text(
-                'PLAY',
-                style: context.appTextTheme.labelSmall?.copyWith(
-                  fontSize: 9,
-                  color: context.appOnAccent,
-                ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: context.appAccent,
+                        borderRadius: BorderRadius.circular(AppRadius.chip),
+                      ),
+                      child: Text(
+                        'PLAY',
+                        style: context.appTextTheme.labelSmall?.copyWith(
+                          fontSize: 9,
+                          color: context.appOnAccent,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
-          ],
-        ],
-      ),
-    ),
-  ),
-);
+          ),
+        ),
+        const Divider(
+          height: 1,
+          thickness: 1,
+          color: context.appOutlineVariant,
+        ),
+      ],
+    );
   }
 }
