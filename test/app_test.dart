@@ -7,7 +7,7 @@ import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:mirai/main.dart';
-import 'package:mirai/screens/more_screen.dart';
+import 'package:mirai/screens/settings_screen.dart';
 import 'package:mirai/screens/saved_screen.dart';
 import 'package:mirai/screens/shell.dart';
 import 'package:mirai/services/saved.dart';
@@ -55,7 +55,7 @@ void main() {
     expect(find.text('TRENDING'), findsOneWidget);
     expect(find.text('SAVED'), findsOneWidget);
     expect(find.text('FIND'), findsOneWidget);
-    expect(find.text('MORE'), findsOneWidget);
+    expect(find.text('SETTINGS'), findsOneWidget);
   });
 
   testWidgets('saved shows its empty state', (tester) async {
@@ -69,14 +69,14 @@ void main() {
     expect(find.text('NOTHING SAVED YET.'), findsOneWidget);
   });
 
-  testWidgets('more exposes the settings column', (tester) async {
+  testWidgets('settings exposes the settings column', (tester) async {
     await boot(tester);
 
     await openDrawer(tester);
-    await tester.tap(find.text('MORE'));
+    await tester.tap(find.text('SETTINGS'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(MoreScreen), findsOneWidget);
+    expect(find.byType(SettingsScreen), findsOneWidget);
     expect(find.text('PLAYBACK'), findsOneWidget);
     expect(find.text('ACCOUNT & DATA'), findsOneWidget);
 

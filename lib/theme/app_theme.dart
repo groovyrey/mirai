@@ -42,6 +42,8 @@ class AppColors {
   static Color get accent => _volt;
   static Color get accentSoft => _isDark ? _voltSoft : _volt;
   static Color get onAccent => _voltOn;
+
+  static Color get cardBorder => _isDark ? _dOutline : _lOutline;
 }
 
 /// Brash radius scale: crisp corners for cards, softer for fields and chips.

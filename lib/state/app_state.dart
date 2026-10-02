@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -24,6 +26,7 @@ class AppState extends ChangeNotifier {
   static const _defaultSpeedKey = 'default_speed';
   static const _audioModeKey = 'audio_mode';
   static const _resolverOverrideKey = 'resolver_base_override';
+  static const _preferredSvKey = 'preferred_source_v1';
 
   static const _settingsKeys = [
     _themeModeKey,
@@ -34,6 +37,7 @@ class AppState extends ChangeNotifier {
     _defaultSpeedKey,
     _audioModeKey,
     _resolverOverrideKey,
+    _preferredSvKey,
   ];
 
   ThemeMode _themeMode = ThemeMode.system;
@@ -44,6 +48,7 @@ class AppState extends ChangeNotifier {
   double _defaultSpeed = 1.0;
   AudioMode _audioMode = AudioMode.sub;
   String _resolverOverride = '';
+  final Map<String, int> _preferredSv = <String, int>{};
 
   ThemeMode get themeMode => _themeMode;
   bool get autoCheckUpdates => _autoCheckUpdates;
@@ -53,6 +58,9 @@ class AppState extends ChangeNotifier {
   double get defaultSpeed => _defaultSpeed;
   AudioMode get audioMode => _audioMode;
   String get resolverOverride => _resolverOverride;
+
+  /// The server the user pinned for a given anime id, if any.
+  int? preferredSv(String animeId) => _preferredSv[animeId];
 
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
@@ -75,6 +83,21 @@ class AppState extends ChangeNotifier {
         : AudioMode.sub;
     _resolverOverride = prefs.getString(_resolverOverrideKey) ?? '';
     AppConfig.aniwavesBaseOverride = _resolverOverride;
+    final rawSvPrefs = prefs.getString(_preferredSvKey);
+    if (rawSvPrefs != null && rawSvPrefs.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rawSvPrefs);
+        if (decoded is Map<String, dynamic>) {
+          for (final entry in decoded.entries) {
+            if (entry.value is num) {
+              _preferredSv[entry.key] = (entry.value as num).toInt();
+            }
+          }
+        }
+      } catch (_) {
+        // corrupted preference, treated as unset
+      }
+    }
     notifyListeners();
   }
 
@@ -147,6 +170,18 @@ class AppState extends ChangeNotifier {
     await prefs.setString(_resolverOverrideKey, _resolverOverride);
   }
 
+  /// Pins [sv] as the preferred server for [animeId]; [sv] null clears it.
+  Future<void> setPreferredSv(String animeId, int? sv) async {
+    if (sv == null) {
+      _preferredSv.remove(animeId);
+    } else {
+      _preferredSv[animeId] = sv;
+    }
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_preferredSvKey, jsonEncode(_preferredSv));
+  }
+
   Future<void> resetAll() async {
     final prefs = await SharedPreferences.getInstance();
     for (final key in _settingsKeys) {
@@ -160,6 +195,7 @@ class AppState extends ChangeNotifier {
     _defaultSpeed = 1.0;
     _audioMode = AudioMode.sub;
     _resolverOverride = '';
+    _preferredSv.clear();
     AppConfig.aniwavesBaseOverride = '';
     notifyListeners();
   }

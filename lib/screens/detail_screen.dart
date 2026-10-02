@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../models/anime_item.dart';
 import '../services/catalog_service.dart';
+import '../services/resolver_service.dart';
 import '../services/saved.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
@@ -10,9 +11,16 @@ import '../widgets/anime_card.dart';
 import 'player_screen.dart';
 
 class DetailScreen extends StatefulWidget {
-  const DetailScreen({super.key, required this.item});
+  const DetailScreen({
+    super.key,
+    required this.item,
+    this.initialEp,
+    this.initialDub,
+  });
 
   final AnimeItem item;
+  final int? initialEp;
+  final bool? initialDub;
 
   @override
   State<DetailScreen> createState() => _DetailScreenState();
@@ -48,6 +56,18 @@ class _DetailScreenState extends State<DetailScreen> {
         _detail = detail;
         _loading = false;
       });
+      // Auto-play if initial episode was specified
+      if (widget.initialEp != null) {
+        final episodes = detail.episodes;
+        final targetEp = episodes.firstWhere(
+          (e) => e.ep == widget.initialEp,
+          orElse: () => episodes.first,
+        );
+        final dub = widget.initialDub ?? false;
+        if (mounted) {
+          _play(context, widget.item, targetEp, dub, sv: null);
+        }
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -96,7 +116,9 @@ class _DetailScreenState extends State<DetailScreen> {
     final hasSub = detail.subEps > 0;
     final hasDub = detail.dubEps > 0;
     final episodes = detail.episodes;
-    final defaultDub = context.read<AppState>().audioMode == AudioMode.dub;
+    final app = context.watch<AppState>();
+    final defaultDub = app.audioMode == AudioMode.dub;
+    final prefSv = app.preferredSv(item.id);
 
     return CustomScrollView(
       slivers: [
@@ -117,7 +139,7 @@ class _DetailScreenState extends State<DetailScreen> {
             ),
           ],
         ),
-        SliverToBoxAdapter(child: _summary(context, item, detail)),
+        SliverToBoxAdapter(child: _summary(context, item, detail, app)),
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
@@ -150,7 +172,8 @@ class _DetailScreenState extends State<DetailScreen> {
                   episode: episodes[index],
                   hasDub: hasDub,
                   defaultDub: defaultDub,
-                  onTap: (dub) => _play(context, item, episodes[index], dub),
+                  onTap: (dub) =>
+                      _play(context, item, episodes[index], dub, sv: prefSv),
                 );
               },
             ),
@@ -159,107 +182,176 @@ class _DetailScreenState extends State<DetailScreen> {
     );
   }
 
-  Widget _summary(BuildContext context, AnimeItem item, AnimeDetail detail) {
+  Widget _summary(
+  BuildContext context,
+  AnimeItem item,
+  AnimeDetail detail,
+  AppState app,
+) {
     final hasSub = detail.subEps > 0;
     final hasDub = detail.dubEps > 0;
     final maxEp = detail.subEps > detail.dubEps ? detail.subEps : detail.dubEps;
-    final chips = <String>[
-      if (hasSub) 'S${detail.subEps}',
-      if (hasDub) 'D${detail.dubEps}',
-      if (detail.totalEps > 0 && detail.totalEps != maxEp)
-        '${detail.totalEps} EPS',
-      if (item.rating != null && item.rating!.isNotEmpty) '${item.rating}★',
-      if (item.type != null && item.type!.isNotEmpty) item.type!,
-      if (detail.ageRating != null && detail.ageRating!.isNotEmpty)
-        detail.ageRating!,
-      if (detail.quality != null && detail.quality!.isNotEmpty) detail.quality!,
-      if (detail.status != null && detail.status!.isNotEmpty) detail.status!,
-      if (detail.premiered != null && detail.premiered!.isNotEmpty)
-        detail.premiered!,
-      if (detail.country != null && detail.country!.isNotEmpty) detail.country!,
-      if (detail.source != null && detail.source!.isNotEmpty)
-        'Source ${detail.source}',
-      if (detail.duration != null && detail.duration!.isNotEmpty)
-        detail.duration!,
-      if (detail.aired != null && detail.aired!.isNotEmpty)
-        'Aired ${detail.aired}',
-      if (detail.broadcast != null && detail.broadcast!.isNotEmpty)
-        'Broadcast ${detail.broadcast}',
-      if (detail.reviews != null && detail.reviews!.isNotEmpty)
-        '${detail.reviews} ratings',
-      for (final g in detail.genres) g,
-      for (final s in detail.studios) s,
-      for (final p in detail.producers) p,
-      for (final l in detail.licensors) l,
+    final prefSv = app.preferredSv(item.id);
+    final children = <Widget>[
+      if (detail.coverUrl != null && detail.coverUrl!.isNotEmpty) ...[
+        ClipRRect(
+          borderRadius: BorderRadius.circular(AppRadius.card),
+          child: SizedBox(
+            width: double.infinity,
+            height: MediaQuery.of(context).size.width * 9 / 16,
+            child: Image.network(
+              detail.coverUrl!,
+              fit: BoxFit.cover,
+              filterQuality: FilterQuality.high,
+              loadingBuilder: (context, child, progress) => progress == null
+                  ? child
+                  : Container(
+                      color: context.appSurfaceVariant,
+                      alignment: Alignment.center,
+                      child: SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: context.appAccent,
+                        ),
+                      ),
+                    ),
+              errorBuilder: (context, error, stack) => const SizedBox.shrink(),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+      ],
+      Text(
+        item.title,
+        style: context.appTextTheme.displayMedium?.copyWith(
+          color: context.appOnSurface,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      if (item.originalTitle != null && item.originalTitle != item.title) ...[
+        const SizedBox(height: 6),
+        Text(
+          item.originalTitle!,
+          style: context.appTextTheme.bodyMedium?.copyWith(
+            color: context.appOnSurfaceVariant,
+          ),
+        ),
+      ],
+      if (detail.synopsis != null && detail.synopsis!.isNotEmpty) ...[
+        const SizedBox(height: 12),
+        Text(
+          detail.synopsis!,
+          style: context.appTextTheme.bodyMedium?.copyWith(
+            color: context.appOnSurfaceVariant,
+          ),
+        ),
+      ],
     ];
 
+    final meta = <({IconData icon, String label})>[
+      if (hasSub)
+        (
+          icon: Icons.closed_caption_rounded,
+          label: 'SUB ${detail.subEps}',
+        ),
+      if (hasDub)
+        (icon: Icons.translate_rounded, label: 'DUB ${detail.dubEps}'),
+      if (detail.totalEps > 0 && detail.totalEps != maxEp)
+        (
+          icon: Icons.video_collection_outlined,
+          label: '${detail.totalEps} EPS',
+        ),
+      if (item.rating != null && item.rating!.isNotEmpty)
+        (icon: Icons.star_rounded, label: item.rating!),
+      if (item.type != null && item.type!.isNotEmpty)
+        (icon: _typeIcon(item.type!), label: item.type!),
+      if (detail.ageRating != null && detail.ageRating!.isNotEmpty)
+        (icon: Icons.shield_outlined, label: detail.ageRating!),
+      if (detail.quality != null && detail.quality!.isNotEmpty)
+        (icon: Icons.high_quality_outlined, label: detail.quality!),
+      if (detail.status != null && detail.status!.isNotEmpty)
+        (icon: _statusIcon(detail.status!), label: detail.status!),
+      if (detail.premiered != null && detail.premiered!.isNotEmpty)
+        (
+          icon: Icons.calendar_month_outlined,
+          label: detail.premiered!,
+        ),
+      if (detail.country != null && detail.country!.isNotEmpty)
+        (icon: Icons.public_rounded, label: detail.country!),
+      if (detail.source != null && detail.source!.isNotEmpty)
+        (
+          icon: Icons.menu_book_outlined,
+          label: 'Source ${detail.source}',
+        ),
+      if (detail.duration != null && detail.duration!.isNotEmpty)
+        (icon: Icons.timer_outlined, label: detail.duration!),
+      if (detail.aired != null && detail.aired!.isNotEmpty)
+        (
+          icon: Icons.event_outlined,
+          label: 'Aired ${detail.aired}',
+        ),
+      if (detail.broadcast != null && detail.broadcast!.isNotEmpty)
+        (
+          icon: Icons.schedule_rounded,
+          label: 'Broadcast ${detail.broadcast}',
+        ),
+      if (detail.reviews != null && detail.reviews!.isNotEmpty)
+        (
+          icon: Icons.rate_review_outlined,
+          label: '${detail.reviews} ratings',
+        ),
+    ];
+    final tags = <String>[
+      ...detail.genres,
+      ...detail.studios,
+      ...detail.producers,
+      ...detail.licensors,
+    ];
+
+    final hasEps = detail.episodes.isNotEmpty;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (detail.coverUrl != null && detail.coverUrl!.isNotEmpty) ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(AppRadius.card),
-              child: SizedBox(
-                width: double.infinity,
-                height: MediaQuery.of(context).size.width * 9 / 16,
-                child: Image.network(
-                  detail.coverUrl!,
-                  fit: BoxFit.cover,
-                  filterQuality: FilterQuality.high,
-                  loadingBuilder: (context, child, progress) => progress == null
-                      ? child
-                      : Container(
-                          color: context.appSurfaceVariant,
-                          alignment: Alignment.center,
-                          child: SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: context.appAccent,
-                            ),
-                          ),
-                        ),
-                  errorBuilder: (context, error, stack) => const SizedBox.shrink(),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-          Text(
-            item.title,
-            style: context.appTextTheme.displayMedium?.copyWith(
-              color: context.appOnSurface,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          if (item.originalTitle != null &&
-              item.originalTitle != item.title) ...[
-            const SizedBox(height: 6),
-            Text(
-              item.originalTitle!,
-              style: context.appTextTheme.bodyMedium?.copyWith(
-                color: context.appOnSurfaceVariant,
-              ),
-            ),
-          ],
-          if (detail.synopsis != null && detail.synopsis!.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Text(
-              detail.synopsis!,
-              style: context.appTextTheme.bodyMedium?.copyWith(
-                color: context.appOnSurfaceVariant,
-              ),
-            ),
-          ],
-          if (chips.isNotEmpty) ...[
+          ...children,
+          if (meta.isNotEmpty || tags.isNotEmpty) ...[
             const SizedBox(height: 14),
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: [for (final c in chips) _chip(context, c)],
+              children: [
+                for (final b in meta) _metaBadge(context, b.icon, b.label),
+                for (final t in tags) _tagChip(context, t),
+              ],
+            ),
+          ],
+          if (hasEps) ...[
+            const SizedBox(height: 20),
+            const SectionLabel(text: 'PLAY SOURCE'),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _sourceChip(
+                  context,
+                  item,
+                  sv: null,
+                  label: 'Auto',
+                  active: prefSv == null,
+                ),
+                for (final sv in ResolverService.serverOrder)
+                  _sourceChip(
+                    context,
+                    item,
+                    sv: sv,
+                    label: ResolverService.serverNames[sv] ?? 'S$sv',
+                    active: prefSv == sv,
+                  ),
+              ],
             ),
           ],
         ],
@@ -267,36 +359,135 @@ class _DetailScreenState extends State<DetailScreen> {
     );
   }
 
-  Widget _chip(BuildContext context, String label) {
+  Widget _metaBadge(BuildContext context, IconData icon, String label) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         border: Border.all(color: context.appOutline),
-        borderRadius: BorderRadius.circular(AppRadius.chip),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: context.appAccent),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: context.appTextTheme.labelSmall?.copyWith(
+              fontSize: 11,
+              letterSpacing: 0.4,
+              color: context.appOnSurface,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tagChip(BuildContext context, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: context.appSurfaceVariant,
+        borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         label,
         style: context.appTextTheme.labelSmall?.copyWith(
-          fontSize: 10,
-          letterSpacing: 1,
-          color: context.appOnSurface,
+          fontSize: 11,
+          color: context.appOnSurfaceVariant,
         ),
       ),
     );
+  }
+
+  Widget _sourceChip(
+    BuildContext context,
+    AnimeItem item, {
+    required int? sv,
+    required String label,
+    required bool active,
+  }) {
+    return GestureDetector(
+      onTap: () => _selectSource(context, item, sv),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: active ? context.appAccent : Colors.transparent,
+          border: Border.all(
+            color: active ? context.appAccent : context.appOutline,
+          ),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.play_arrow_rounded,
+              size: 15,
+              color: active ? context.appOnAccent : context.appAccent,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: context.appTextTheme.labelSmall?.copyWith(
+                fontSize: 11,
+                letterSpacing: 0.4,
+                color: active ? context.appOnAccent : context.appOnSurface,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Pins [sv] for this anime (null clears the preference) and plays the first
+  /// available episode so the choice is immediately felt.
+  void _selectSource(BuildContext context, AnimeItem item, int? sv) {
+    final app = context.read<AppState>();
+    app.setPreferredSv(item.id, sv);
+    final episodes = _detail!.episodes;
+    if (episodes.isEmpty) return;
+    _play(context, item, episodes.first, app.audioMode == AudioMode.dub,
+        sv: sv);
+  }
+
+  IconData _statusIcon(String status) {
+    final s = status.toLowerCase();
+    if (s.contains('ongo') || s.contains('airing')) {
+      return Icons.play_circle_outline_rounded;
+    }
+    if (s.contains('finish') || s.contains('end')) {
+      return Icons.check_circle_outline_rounded;
+    }
+    if (s.contains('upcom')) {
+      return Icons.upcoming_rounded;
+    }
+    return Icons.autorenew_rounded;
+  }
+
+  IconData _typeIcon(String type) {
+    final t = type.toLowerCase();
+    if (t == 'movie') return Icons.movie_rounded;
+    if (t == 'tv' || t.contains('series')) return Icons.tv_rounded;
+    return Icons.ondemand_video_outlined;
   }
 
   void _play(
     BuildContext context,
     AnimeItem item,
     Episode episode,
-    bool dub,
-  ) {
+    bool dub, {
+    int? sv,
+  }) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => PlayerScreen(
           item: item,
           ep: episode.ep,
           dub: dub,
+          sv: sv,
           subtitle: 'EP ${episode.ep}',
         ),
       ),

@@ -55,17 +55,32 @@ class ResolvedSource {
 /// Resolves a playable URL for an aniwaves episode through worker8652.
 ///
 /// [dub] requests a dubbed server when the episode has one. [embed] forces the
-/// embed page (used by the source switcher) instead of a direct stream.
+/// embed page (used by the source switcher) instead of a direct stream. [sv]
+/// pins a specific aniwaves server. [proxy] routes direct streams through the
+/// worker so media_kit receives them with the upstream's required headers.
 class ResolverService {
   ResolverService({http.Client? client}) : _client = client ?? http.Client();
 
   final http.Client _client;
+
+  /// aniwaves server id (as passed to the worker ?sv=) -> display name.
+  static const serverNames = <int, String>{
+    2: 'DoodStream',
+    4: 'Vidplay',
+    14: 'DatSaV',
+    12: 'MyCloud',
+    1: 'BYFMS',
+  };
+
+  static const serverOrder = [2, 4, 14, 12, 1];
 
   Future<ResolvedSource> resolve(
     AnimeItem item,
     int ep, {
     required bool dub,
     bool embed = false,
+    int? sv,
+    bool proxy = false,
   }) async {
     final base = AppConfig.resolverBase.replaceFirst(RegExp(r'/$'), '');
     final uri = Uri.parse('$base/resolve').replace(
@@ -74,6 +89,8 @@ class ResolverService {
         'ep': '$ep',
         if (dub) 'dub': '1',
         if (embed) 'embed': '1',
+        if (sv != null) 'sv': '$sv',
+        if (proxy) 'proxy': '1',
       },
     );
     final http.Response res;

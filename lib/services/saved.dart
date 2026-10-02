@@ -53,6 +53,10 @@ class Saved extends ChangeNotifier {
   List<AnimeDetail> get items =>
       List.unmodifiable([for (final e in _entries) e.detail]);
 
+  /// Raw entries with timestamps for sorting/display.
+  List<SavedEntry> get entries =>
+      List.unmodifiable(_entries);
+
   bool contains(int id) => _entries.any((e) => e.detail.item.id == id);
 
   Future<void> toggle(AnimeDetail detail) async {

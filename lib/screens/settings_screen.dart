@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
+import '../screens/about_screen.dart';
 import '../services/saved.dart';
 import '../services/version_checker.dart';
 import '../services/watch_history.dart';
@@ -11,16 +12,15 @@ import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/anime_card.dart';
 
-/// More: settings and about in one editorial column. The update banner and the
-/// version-settings row live here; the header in the shell shows the version.
-class MoreScreen extends StatefulWidget {
-  const MoreScreen({super.key});
+/// Settings: app preferences and about link.
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({super.key});
 
   @override
-  State<MoreScreen> createState() => _MoreScreenState();
+  State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _MoreScreenState extends State<MoreScreen> {
+class _SettingsScreenState extends State<SettingsScreen> {
   final VersionChecker _checker = VersionChecker();
   VersionInfo? _update;
 
@@ -121,20 +121,17 @@ class _MoreScreenState extends State<MoreScreen> {
             child: SectionLabel(text: 'ABOUT'),
           ),
           _ListTile(
-            title: 'Source',
-            subtitle: 'github.com/groovyrey/mirai',
-            onTap: () => _open('https://github.com/groovyrey/mirai'),
+            title: 'About Mirai',
+            subtitle: 'Version, sources, and credits',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AboutScreen()),
+            ),
           ),
           _ListTile(
             title: 'Report a problem',
             subtitle: 'Open the issue tracker',
             onTap: () =>
                 _open('https://github.com/groovyrey/mirai/issues'),
-          ),
-          _ListTile(
-            title: 'Privacy',
-            subtitle: 'Mirai stores everything on your device',
-            onTap: () => _open('https://github.com/groovyrey/mirai'),
           ),
           const SizedBox(height: 24),
           Center(

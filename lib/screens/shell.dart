@@ -6,14 +6,12 @@ import '../services/watch_history.dart';
 import '../theme/app_theme.dart';
 import '../widgets/mirai_wordmark.dart';
 import 'home_screen.dart';
-import 'more_screen.dart';
 import 'saved_screen.dart';
 import 'search_screen.dart';
+import 'settings_screen.dart';
 import 'trending_screen.dart';
 
-/// Mirai's shell: a wordmark header with an editorial section tab strip.
-/// Not Kumi's floating pill — the tabs sit against the header hairline so the
-/// browsing surface stays clean.
+/// Mirai's shell: a wordmark header with a drawer navigation.
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
 
@@ -29,7 +27,7 @@ class _AppShellState extends State<AppShell> {
     (icon: Icons.local_fire_department_rounded, label: 'Trending'),
     (icon: Icons.bookmark_rounded, label: 'Saved'),
     (icon: Icons.search_rounded, label: 'Find'),
-    (icon: Icons.more_horiz_rounded, label: 'More'),
+    (icon: Icons.settings_rounded, label: 'Settings'),
   ];
 
   @override
@@ -59,7 +57,7 @@ class _ShellScaffold extends StatelessWidget {
       const TrendingScreen(key: ValueKey('trending')),
       const SavedScreen(key: ValueKey('saved')),
       const SearchScreen(key: ValueKey('search')),
-      const MoreScreen(key: ValueKey('more')),
+      const SettingsScreen(key: ValueKey('settings')),
     ];
 
     return Scaffold(
@@ -187,7 +185,10 @@ class _DrawerItem extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: onTap,
+        onTap: () {
+          Navigator.of(context).pop();
+          onTap();
+        },
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           child: Row(

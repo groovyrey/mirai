@@ -96,16 +96,50 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  late final Animation<double> _fade;
+  late final List<Animation<double>> _letterFades;
+  late final List<Animation<Offset>> _letterSlides;
+  late final Animation<double> _shimmer;
+  late final Animation<double> _taglineFade;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 1600),
     )..forward();
-    _fade = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
+
+    const int letterCount = 5; // M I R A I
+    _letterFades = List.generate(letterCount, (i) {
+      final start = 0.05 + i * 0.1; // 50ms stagger
+      final end = (start + 0.35).clamp(0.0, 1.0);
+      return CurvedAnimation(
+        parent: _controller,
+        curve: Interval(start, end, curve: Curves.easeOutCubic),
+      );
+    });
+    _letterSlides = List.generate(letterCount, (i) {
+      final start = 0.05 + i * 0.1;
+      final end = (start + 0.4).clamp(0.0, 1.0);
+      return Tween<Offset>(begin: const Offset(0, 0.5), end: Offset.zero).animate(
+        CurvedAnimation(
+          parent: _controller,
+          curve: Interval(start, end, curve: Curves.easeOutCubic),
+        ),
+      );
+    });
+
+    // Shimmer sweep starts after letters settle
+    _shimmer = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.6, 0.9, curve: Curves.easeInOut),
+    );
+
+    // Tagline fades in last
+    _taglineFade = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.75, 1.0, curve: Curves.easeOut),
+    );
   }
 
   @override
@@ -116,23 +150,105 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    const letters = ['M', 'I', 'R', 'A', 'I'];
+
     return Scaffold(
       backgroundColor: context.appBackground,
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            FadeTransition(
-              opacity: _fade,
-              child: const MiraiWordmark(size: 46),
+            // Animated wordmark with letter stagger + shimmer
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // Accent bar - animate with first letter
+                    ScaleTransition(
+                      scale: _letterFades[0],
+                      child: Container(
+                        width: 46 * 0.18,
+                        height: 46 * 0.9,
+                        color: context.appAccent,
+                      ),
+                    ),
+                    SizedBox(width: 46 * 0.12),
+                    // Individual animated letters
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: List.generate(letters.length, (i) {
+                        return SlideTransition(
+                          position: _letterSlides[i],
+                          child: FadeTransition(
+                            opacity: _letterFades[i],
+                            child: ShaderMask(
+                              shaderCallback: (bounds) {
+                                return LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    context.appOnSurface,
+                                    context.appAccent,
+                                  ],
+                                ).createShader(bounds);
+                              },
+                              child: Text(
+                                letters[i],
+                                style: context.appTextTheme.displayMedium
+                                    ?.copyWith(
+                                  fontSize: 46,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1,
+                                  letterSpacing: 0.02,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  ],
+                ),
+                // Shimmer sweep overlay
+                AnimatedBuilder(
+                  animation: _shimmer,
+                  builder: (context, child) {
+                    if (_shimmer.value == 0) return const SizedBox.shrink();
+                    return IgnorePointer(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment(
+                                -1.5 + 3 * _shimmer.value, 0),
+                            end: Alignment(
+                                -0.5 + 3 * _shimmer.value, 0),
+                            colors: [
+                              Colors.transparent,
+                              context.appAccent.withOpacity(0.15),
+                              Colors.transparent,
+                            ],
+                            stops: const [0.0, 0.5, 1.0],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
             const SizedBox(height: 22),
+            // Tagline fade-in
             FadeTransition(
-              opacity: _fade,
+              opacity: _taglineFade,
               child: Text(
-                'NIGHT BROADCAST',
+                'Your Anime streaming buddy',
                 style: context.appTextTheme.labelSmall?.copyWith(
                   color: context.appOnSurfaceVariant,
+                  letterSpacing: 1.5,
                 ),
               ),
             ),

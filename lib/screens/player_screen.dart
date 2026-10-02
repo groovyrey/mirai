@@ -30,6 +30,7 @@ class PlayerScreen extends StatefulWidget {
     required this.item,
     required this.ep,
     this.dub = false,
+    this.sv,
     this.subtitle,
     this.initialPosition,
   });
@@ -37,6 +38,10 @@ class PlayerScreen extends StatefulWidget {
   final AnimeItem item;
   final int ep;
   final bool dub;
+
+  /// Optional pinned aniwaves server id. When set, resolution is forced to
+  /// that server instead of the worker's default priority.
+  final int? sv;
 
   /// Short label like "EP 05" shown under the title in the top bar.
   final String? subtitle;
@@ -163,7 +168,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
       aniwavesEmbedUrl(id: widget.item.id, slug: widget.item.slug, ep: widget.ep);
 
   /// Native-first. The worker picks the best server for the episode: when
-  /// DoodStream resolves we get a real MP4 and play it with media_kit;
+  /// DoodStream resolves we get a real MP4 and play it with media_kit (routed
+  /// through the worker proxy so the CDN's required headers are present);
   /// otherwise the worker hands back an embed page which we load in the WebView.
   Future<void> _start() async {
     setState(() => _mode = _PlayerMode.loading);
@@ -172,6 +178,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
         widget.item,
         widget.ep,
         dub: widget.dub,
+        sv: widget.sv,
+        proxy: true,
       );
       if (!mounted) return;
       if (source.embedMode) {
@@ -347,6 +355,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         widget.item,
         widget.ep,
         dub: widget.dub,
+        sv: widget.sv,
         embed: true,
       );
       if (!mounted) return;
