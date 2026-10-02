@@ -1,0 +1,184 @@
+import 'package:flutter/material.dart';
+
+import '../models/anime_item.dart';
+import '../services/catalog_service.dart';
+import '../theme/app_theme.dart';
+import '../widgets/anime_card.dart';
+import 'detail_screen.dart';
+import 'trending_screen.dart';
+
+/// Home = the "tonight" signal row (top trending) framed by a secondary
+/// "now playing / updated" rail. The vertical rhythm is editorial: a lead
+/// block, then a dense poster rail.
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final CatalogService _catalog = CatalogService();
+
+  List<AnimeItem>? _lead;
+  List<AnimeItem>? _rail;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final results = await Future.wait([
+        _catalog.rail('trending'),
+        _catalog.rail('updated'),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _lead = results[0];
+        _rail = results[1];
+        _error = null;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _error = 'The broadcast is down.');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(bottom: 32),
+        children: [
+          _intro(context),
+          if (_error != null) _errorState(context),
+          if (_lead != null) _leadSection(context),
+          if (_rail != null) _railSection(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _intro(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 28, 20, 8),
+      child: Text(
+        'WHAT\'S ON\nTONIGHT',
+        style: context.appTextTheme.displayMedium?.copyWith(
+          color: context.appOnSurface,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+
+  Widget _leadSection(BuildContext context) {
+    final leads = _lead!.take(4).toList();
+    if (leads.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+          child: SectionLabel(
+            text: 'TOP SIGNAL',
+            onMore: () => _openTrending(context),
+          ),
+        ),
+        SizedBox(
+          height: 214,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            scrollDirection: Axis.horizontal,
+            itemCount: leads.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, i) => SizedBox(
+              width: 320,
+              child: LeadCard(
+                item: leads[i],
+                rank: i + 1,
+                onTap: () => _openDetail(context, leads[i]),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _railSection(BuildContext context) {
+    final rail = _rail!.take(10).toList();
+    if (rail.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 26, 20, 12),
+          child: SectionLabel(text: 'RECENTLY ON'),
+        ),
+        SizedBox(
+          height: 236,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            scrollDirection: Axis.horizontal,
+            itemCount: rail.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, i) => SizedBox(
+              width: 132,
+              child: AnimeCard(
+                item: rail[i],
+                onTap: () => _openDetail(context, rail[i]),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _errorState(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 40, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _error!,
+            style: context.appTextTheme.titleMedium?.copyWith(
+              color: context.appOnSurface,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Pull down to retry the feed.',
+            style: context.appTextTheme.bodyMedium,
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openDetail(BuildContext context, AnimeItem item) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => DetailScreen(item: item)),
+    );
+  }
+
+  void _openTrending(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => Scaffold(
+          backgroundColor: context.appBackground,
+          body: TrendingScreen(
+            header: 'TOP SIGNAL — TRENDING',
+          ),
+        ),
+      ),
+    );
+  }
+}

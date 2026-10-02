@@ -1,0 +1,34 @@
+name: mirai
+description: "Mirai - an anime streaming app, powered by aniwaves."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  provider: ^6.1.2
+  google_fonts: ^6.3.3
+  shared_preferences: ^2.3.3
+  http: ^1.2.2
+  webview_flutter: ^4.14.1
+  webview_flutter_android: ^4.12.0
+  webview_flutter_wkwebview: ^3.25.1
+  url_launcher: ^6.3.8
+  package_info_plus: ^10.2.1
+  phosphor_flutter: ^2.0.2
+  wakelock_plus: ^1.2.8
+  media_kit: ^1.2.6
+  media_kit_video: ^2.0.1
+  media_kit_libs_video: ^1.0.7
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
