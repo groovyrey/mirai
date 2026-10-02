@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -31,6 +32,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
   }
 
+  Future<void> openDrawer(WidgetTester tester) async {
+    await tester.tap(find.byIcon(Icons.menu_rounded));
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('app boots through the splash into the shell', (tester) async {
     await boot(tester);
 
@@ -39,8 +45,11 @@ void main() {
     expect(find.byType(MiraiWordmark), findsWidgets);
   });
 
-  testWidgets('shell carries the section tab strip', (tester) async {
+  testWidgets('shell navigation drawer lists every section', (tester) async {
     await boot(tester);
+
+    expect(find.text('SAVED'), findsNothing);
+    await openDrawer(tester);
 
     expect(find.text('HOME'), findsOneWidget);
     expect(find.text('TRENDING'), findsOneWidget);
@@ -52,8 +61,9 @@ void main() {
   testWidgets('saved shows its empty state', (tester) async {
     await boot(tester);
 
+    await openDrawer(tester);
     await tester.tap(find.text('SAVED'));
-    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
 
     expect(find.byType(SavedScreen), findsOneWidget);
     expect(find.text('NOTHING SAVED YET.'), findsOneWidget);
@@ -62,8 +72,9 @@ void main() {
   testWidgets('more exposes the settings column', (tester) async {
     await boot(tester);
 
+    await openDrawer(tester);
     await tester.tap(find.text('MORE'));
-    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
 
     expect(find.byType(MoreScreen), findsOneWidget);
     expect(find.text('PLAYBACK'), findsOneWidget);
