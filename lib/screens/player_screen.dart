@@ -173,9 +173,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
       aniwavesEmbedUrl(id: widget.item.id, slug: widget.item.slug, ep: widget.ep);
 
   /// Native-first. The worker picks the best server for the episode: when
-  /// DoodStream resolves we get a real MP4 and play it with media_kit (routed
-  /// through the worker proxy so the CDN's required headers are present);
-  /// otherwise the worker hands back an embed page which we load in the WebView.
+  /// DoodStream resolves we get a real MP4 and play it with media_kit (the
+  /// mobile UA header is attached so the CDN streams it); otherwise the worker
+  /// hands back an embed page which we load in the WebView.
   Future<void> _start() async {
     setState(() => _mode = _PlayerMode.loading);
     if (widget.embed) {
@@ -192,6 +192,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
       );
       if (!mounted) return;
       if (source.embedMode) {
+        final direct = await _tryClientDoodNative(source);
+        if (!mounted) return;
+        if (direct != null) {
+          final started = await _playNative(direct);
+          if (mounted && started) return;
+        }
         _fallbackToEmbed(
           url: source.playUrl,
           provider: source.provider,
@@ -217,6 +223,34 @@ class _PlayerScreenState extends State<PlayerScreen> {
         notice:
             'The direct stream couldn\'t be reached, so Mirai opened the embed player instead.',
       );
+    }
+  }
+
+  /// The worker hands back a dood embed page when its own network can't pass
+  /// dood's challenge. A real device passes, so the direct MP4 is resolved
+  /// from the phone and played straight from dood's CDN (which blocks CF
+  /// egress) with a mobile UA header, no worker proxy in between.
+  Future<ResolvedSource?> _tryClientDoodNative(ResolvedSource source) async {
+    if (source.provider != 'dood') return null;
+    try {
+      final mp4 = await _resolver.resolveDoodNative(
+        source.playUrl,
+        animeId: widget.item.id,
+        ep: widget.ep,
+      );
+      return ResolvedSource(
+        playUrl: mp4,
+        provider: 'doodstream',
+        quality: 'auto',
+        embedMode: false,
+        httpHeaders: {
+          'User-Agent': ResolverService.mobileUa,
+          'Referer': ResolverService.doodReferer,
+        },
+      );
+    } catch (error) {
+      debugPrint('[player] client dood native failed: $error');
+      return null;
     }
   }
 
@@ -259,7 +293,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
       _nativeLabel = 'DoodStream';
     });
     try {
-      await player.open(Media(source.playUrl));
+      await player.open(
+        Media(
+          source.playUrl,
+          httpHeaders: source.httpHeaders,
+        ),
+      );
       if (!mounted) {
         unawaited(errorSub.cancel());
         unawaited(player.dispose());

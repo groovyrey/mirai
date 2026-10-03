@@ -15,11 +15,19 @@ class MiraiWordmark extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Image.asset(
-          'assets/logo/mirai_logo.png',
-          width: size * 0.9,
-          height: size * 0.9,
-          fit: BoxFit.contain,
+        Container(
+          width: size,
+          height: size,
+          padding: EdgeInsets.all(size * 0.12),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.white,
+            border: Border.all(color: context.appOutline),
+          ),
+          child: Image.asset(
+            'assets/logo/mirai_logo.png',
+            fit: BoxFit.contain,
+          ),
         ),
         SizedBox(width: size * 0.35),
         Text(

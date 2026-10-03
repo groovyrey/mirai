@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:http/http.dart' as http;
 
@@ -21,6 +22,7 @@ class ResolvedSource {
     required this.quality,
     required this.embedMode,
     this.note,
+    this.httpHeaders,
   });
 
   final String playUrl;
@@ -31,6 +33,10 @@ class ResolvedSource {
   final String quality;
   final bool embedMode;
   final String? note;
+
+  /// Extra request headers to attach to the media fetch. Used for direct CDN
+  /// playback where the upstream gates on a mobile UA.
+  final Map<String, String>? httpHeaders;
 
   static ResolvedSource? tryFromJson(Object? data) {
     if (data is! Map<String, dynamic>) return null;
@@ -107,5 +113,76 @@ class ResolverService {
       throw ResolveFailure(message);
     }
     return source;
+  }
+
+  /// Matches the mobile Chrome mobile UA that dood's CDN accepts.
+  static const mobileUa =
+      'Mozilla/5.0 (Linux; Android 15; Pixel 8) AppleWebKit/537.36 '
+      '(KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36';
+
+  /// dood's embed and CDN pages expect a dood referer or they reject the video.
+  static const doodReferer = 'https://playmogo.com/';
+
+  static String _noise(int length) {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    final rnd = Random();
+    return List.generate(
+      length,
+      (_) => chars[rnd.nextInt(chars.length)],
+    ).join();
+  }
+
+  /// Client-side DoodStream pass_md5 walk. aniwaves serves a myvidplay /
+  /// playmogo `/e/` page, but dood answers the worker's Cloudflare egress with
+  /// a Turnstile challenge (and its CDN blocks CF IPs outright), so direct MP4
+  /// resolution happens from the phone: the embed page is fetched here, the
+  /// player keys extracted, and the CDN URL built, mirroring dood's own
+  /// makePlay(). The returned URL is played directly with a mobile UA (see
+  /// [doodReferer]), which the CDN serves with a real 206 MP4.
+  Future<String> resolveDoodNative(
+    String embedUrl, {
+    required int animeId,
+    required int ep,
+  }) async {
+    final referer = 'https://aniwaves.ru/watch/$animeId?ep=$ep';
+    const baseHeaders = {
+      'User-Agent': mobileUa,
+      'Accept': '*/*',
+      'Accept-Language': 'en-US,en;q=0.9',
+    };
+
+    final embedRes = await _client
+        .get(Uri.parse(embedUrl), headers: {...baseHeaders, 'Referer': referer})
+        .timeout(const Duration(seconds: 20));
+    if (embedRes.statusCode != 200) {
+      throw const ResolveFailure('DoodStream embed unavailable.');
+    }
+    final keyMatch = RegExp(r'pass_md5/([A-Za-z0-9\-]+)/([A-Za-z0-9]+)')
+        .firstMatch(embedRes.body);
+    if (keyMatch == null) {
+      throw const ResolveFailure('DoodStream page missing player keys.');
+    }
+    final finalUrl = embedRes.request?.url ?? Uri.parse(embedUrl);
+    final host = finalUrl.origin;
+
+    final pmRes = await _client
+        .get(
+          Uri.parse('$host/pass_md5/${keyMatch.group(1)}/${keyMatch.group(2)}'),
+          headers: {
+            ...baseHeaders,
+            'Referer': finalUrl.toString(),
+          },
+        )
+        .timeout(const Duration(seconds: 20));
+    if (pmRes.statusCode != 200) {
+      throw const ResolveFailure('DoodStream key endpoint failed.');
+    }
+    final cdn = pmRes.body.trim();
+    if (!cdn.startsWith('https://')) {
+      throw const ResolveFailure('DoodStream key endpoint returned no source.');
+    }
+    final token = keyMatch.group(2)!;
+    final expiry = DateTime.now().millisecondsSinceEpoch;
+    return '$cdn${_noise(10)}?token=$token&expiry=$expiry';
   }
 }

@@ -5,6 +5,7 @@ import '../services/saved.dart';
 import '../services/watch_history.dart';
 import '../theme/app_theme.dart';
 import '../widgets/mirai_wordmark.dart';
+import 'about_screen.dart';
 import 'home_screen.dart';
 import 'saved_screen.dart';
 import 'search_screen.dart';
@@ -158,6 +159,21 @@ class _Drawer extends StatelessWidget {
                 selected: selected == i,
                 onTap: () => onSelect(i),
               ),
+            const Spacer(),
+            const Divider(height: 1, thickness: 1),
+            const SizedBox(height: 8),
+            _DrawerItem(
+              label: 'About',
+              icon: Icons.info_rounded,
+              selected: false,
+              onTap: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const AboutScreen()),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
           ],
         ),
       ),

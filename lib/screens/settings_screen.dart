@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
-import '../screens/about_screen.dart';
 import '../services/saved.dart';
 import '../services/version_checker.dart';
 import '../services/watch_history.dart';
@@ -12,7 +11,7 @@ import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/anime_card.dart';
 
-/// Settings: app preferences and about link.
+/// Settings: app preferences and links.
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -118,14 +117,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-            child: SectionLabel(text: 'ABOUT'),
-          ),
-          _ListTile(
-            title: 'About Mirai',
-            subtitle: 'Version, sources, and credits',
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const AboutScreen()),
-            ),
+            child: SectionLabel(text: 'SUPPORT'),
           ),
           _ListTile(
             title: 'Report a problem',

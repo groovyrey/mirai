@@ -169,8 +169,9 @@ class _DetailScreenState extends State<DetailScreen> {
             sliver: SliverList.builder(
               itemCount: episodes.isEmpty
                   ? 1
-                  : (episodes.length > _visibleEps ? _visibleEps : episodes.length) +
-                      (episodes.length > _visibleEps ? 1 : 0),
+                  : _visibleEps < episodes.length
+                      ? _visibleEps + 1
+                      : episodes.length,
               itemBuilder: (context, index) {
                 if (episodes.isEmpty) {
                   return Text(
@@ -178,7 +179,7 @@ class _DetailScreenState extends State<DetailScreen> {
                     style: context.appTextTheme.bodyMedium,
                   );
                 }
-                if (index >= episodes.length) {
+                if (_visibleEps < episodes.length && index == _visibleEps) {
                   return _loadMoreButton(context);
                 }
                 return _EpisodeRow(
