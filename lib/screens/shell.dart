@@ -172,7 +172,6 @@ class _Drawer extends StatelessWidget {
               icon: Icons.info_rounded,
               selected: false,
               onTap: () {
-                Navigator.of(context).pop();
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const AboutScreen()),
                 );

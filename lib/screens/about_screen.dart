@@ -61,193 +61,211 @@ static const _sourceNote = 'Mirai plays through DoodStream, hosted on '
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 30, 20, 28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Center(child: MiraiMark(size: 88)),
-          const SizedBox(height: 14),
-          Center(
-            child: Text(
-              'Mirai',
-              style: context.appTextTheme.displayMedium?.copyWith(
-                color: context.appOnSurface,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -1,
-              ),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Center(
-            child: Text(
-              'Your Anime streaming buddy',
-              style: context.appTextTheme.bodyLarge?.copyWith(
-                color: context.appOnSurfaceVariant,
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-          const Center(child: _VersionPill()),
-          const SizedBox(height: 30),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: context.appSurface,
-              borderRadius: BorderRadius.circular(AppRadius.card),
-              border: Border.all(color: AppColors.cardBorder),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'OUR PURPOSE',
-                  style: context.appTextTheme.labelSmall?.copyWith(
-                    color: context.appAccent,
-                    letterSpacing: 1.2,
-                    fontWeight: FontWeight.w700,
+    return Scaffold(
+      backgroundColor: context.appBackground,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    color: context.appOnSurfaceVariant,
+                    padding: EdgeInsets.zero,
+                    constraints:
+                        const BoxConstraints(minWidth: 36, minHeight: 36),
+                    onPressed: () => Navigator.of(context).pop(),
                   ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  _purposeLabel,
-                  style: context.appTextTheme.headlineMedium?.copyWith(
+                ],
+              ),
+              const SizedBox(height: 14),
+              const Center(child: MiraiMark(size: 88)),
+              const SizedBox(height: 14),
+              Center(
+                child: Text(
+                  'Mirai',
+                  style: context.appTextTheme.displayMedium?.copyWith(
                     color: context.appOnSurface,
-                    height: 1.25,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -1,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  _purposeBody,
+              ),
+              const SizedBox(height: 4),
+              Center(
+                child: Text(
+                  'Your Anime streaming buddy',
                   style: context.appTextTheme.bodyLarge?.copyWith(
                     color: context.appOnSurfaceVariant,
-                    height: 1.55,
                   ),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 30),
-          _sectionLabel(context, 'What Mirai does'),
-          const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: context.appSurface,
-              borderRadius: BorderRadius.circular(AppRadius.card),
-              border: Border.all(color: AppColors.cardBorder),
-            ),
-            child: Column(
-              children: [
-                for (var i = 0; i < _features.length; i++) ...[
-                  if (i > 0) Divider(height: 1, color: AppColors.cardBorder),
-                  _featureRow(context, _features[i]),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 30),
-          _sectionLabel(context, 'Playback sources'),
-          const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: context.appSurface,
-              borderRadius: BorderRadius.circular(AppRadius.card),
-              border: Border.all(color: AppColors.cardBorder),
-            ),
-            child: Column(
-              children: [
-                for (var i = 0; i < _sources.length; i++) ...[
-                  if (i > 0) Divider(height: 1, color: AppColors.cardBorder),
-                  _sourceRow(context, _sources[i]),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 34),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-            decoration: BoxDecoration(
-              color: context.appSurface,
-              borderRadius: BorderRadius.circular(AppRadius.card),
-              border: Border.all(color: AppColors.cardBorder),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(PhosphorIcons.info(), size: 18, color: context.appAccent),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    _sourceNote,
-                    style: context.appTextTheme.bodyMedium?.copyWith(
-                      color: context.appOnSurfaceVariant,
-                      height: 1.5,
-                    ),
-                  ),
+              ),
+              const SizedBox(height: 14),
+              const Center(child: _VersionPill()),
+              const SizedBox(height: 30),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: context.appSurface,
+                  borderRadius: BorderRadius.circular(AppRadius.card),
+                  border: Border.all(color: AppColors.cardBorder),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 22),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-            decoration: BoxDecoration(
-              color: context.appSurface,
-              borderRadius: BorderRadius.circular(AppRadius.card),
-              border: Border.all(color: AppColors.cardBorder),
-            ),
-            child: Column(
-              children: [
-                Text(
-                  'Mirai is a hobby project, built free, open, and without '
-                  'trackers. If it helps you find a show tonight, that is '
-                  'enough.',
-                  textAlign: TextAlign.center,
-                  style: context.appTextTheme.bodyMedium?.copyWith(
-                    color: context.appOnSurfaceVariant,
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Divider(height: 1, color: AppColors.cardBorder),
-                const SizedBox(height: 16),
-                Text(
-                  'Developed and maintained by Groovyrey',
-                  style: context.appTextTheme.bodyMedium?.copyWith(
-                    color: context.appOnSurface,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 12,
-                  runSpacing: 6,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _linkChip(
-                        context, 'GitHub', PhosphorIcons.code(), _githubUrl),
-                    _linkChip(context, 'Email', PhosphorIcons.envelope(),
-                        'mailto:$_email'),
+                    Text(
+                      'OUR PURPOSE',
+                      style: context.appTextTheme.labelSmall?.copyWith(
+                        color: context.appAccent,
+                        letterSpacing: 1.2,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      _purposeLabel,
+                      style: context.appTextTheme.headlineMedium?.copyWith(
+                        color: context.appOnSurface,
+                        height: 1.25,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _purposeBody,
+                      style: context.appTextTheme.bodyLarge?.copyWith(
+                        color: context.appOnSurfaceVariant,
+                        height: 1.55,
+                      ),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                Divider(height: 1, color: AppColors.cardBorder),
-                const SizedBox(height: 12),
-                Text(
-                  'Powered by aniwaves',
-                  style: context.appTextTheme.bodySmall?.copyWith(
-                    color: context.appOnSurfaceVariant,
-                  ),
+              ),
+              const SizedBox(height: 30),
+              _sectionLabel(context, 'What Mirai does'),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: context.appSurface,
+                  borderRadius: BorderRadius.circular(AppRadius.card),
+                  border: Border.all(color: AppColors.cardBorder),
                 ),
-              ],
-            ),
+                child: Column(
+                  children: [
+                    for (var i = 0; i < _features.length; i++) ...[
+                      if (i > 0) Divider(height: 1, color: AppColors.cardBorder),
+                      _featureRow(context, _features[i]),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 30),
+              _sectionLabel(context, 'Playback sources'),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: context.appSurface,
+                  borderRadius: BorderRadius.circular(AppRadius.card),
+                  border: Border.all(color: AppColors.cardBorder),
+                ),
+                child: Column(
+                  children: [
+                    for (var i = 0; i < _sources.length; i++) ...[
+                      if (i > 0) Divider(height: 1, color: AppColors.cardBorder),
+                      _sourceRow(context, _sources[i]),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 34),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                decoration: BoxDecoration(
+                  color: context.appSurface,
+                  borderRadius: BorderRadius.circular(AppRadius.card),
+                  border: Border.all(color: AppColors.cardBorder),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(PhosphorIcons.info(), size: 18, color: context.appAccent),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _sourceNote,
+                        style: context.appTextTheme.bodyMedium?.copyWith(
+                          color: context.appOnSurfaceVariant,
+                          height: 1.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 22),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                decoration: BoxDecoration(
+                  color: context.appSurface,
+                  borderRadius: BorderRadius.circular(AppRadius.card),
+                  border: Border.all(color: AppColors.cardBorder),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      'Mirai is a hobby project, built free, open, and without '
+                      'trackers. If it helps you find a show tonight, that is '
+                      'enough.',
+                      textAlign: TextAlign.center,
+                      style: context.appTextTheme.bodyMedium?.copyWith(
+                        color: context.appOnSurfaceVariant,
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Divider(height: 1, color: AppColors.cardBorder),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Developed and maintained by Groovyrey',
+                      style: context.appTextTheme.bodyMedium?.copyWith(
+                        color: context.appOnSurface,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 12,
+                      runSpacing: 6,
+                      children: [
+                        _linkChip(
+                            context, 'GitHub', PhosphorIcons.code(), _githubUrl),
+                        _linkChip(context, 'Email', PhosphorIcons.envelope(),
+                            'mailto:$_email'),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Divider(height: 1, color: AppColors.cardBorder),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Powered by aniwaves',
+                      style: context.appTextTheme.bodySmall?.copyWith(
+                        color: context.appOnSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
