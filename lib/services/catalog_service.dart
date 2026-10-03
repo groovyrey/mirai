@@ -28,6 +28,10 @@ class CatalogService {
   static const _ttl = Duration(minutes: 10);
   static const _swr = Duration(minutes: 5);
 
+  static final Map<String, _DetailEntry> _detailCache = {};
+  static const _detailTtl = Duration(minutes: 30);
+  static const _detailSwr = Duration(minutes: 5);
+
   Uri _url(String path, [Map<String, String>? query]) {
     final base = AppConfig.resolverBase.replaceFirst(RegExp(r'/$'), '');
     return Uri.parse('$base$path').replace(queryParameters: query);
@@ -83,32 +87,69 @@ class CatalogService {
     return items;
   }
 
-  /// "Trending" is the home rail; [mode] selects trending|updated|newest.
-  Future<List<AnimeItem>> rail(String mode, {int page = 1}) =>
-      _items('/list', {'mode': mode, 'page': '$page'});
+  /// "Trending" is the home rail; [mode] selects trending|updated|newest|az.
+  /// Optional [type] ([MOVIE]/[TV]/...) and [letter] (single A-Z) refine the
+  /// listing through the worker's filter and az-list endpoints.
+  Future<List<AnimeItem>> rail(
+    String mode, {
+    int page = 1,
+    String? type,
+    String? letter,
+  }) =>
+      _items('/list', {
+        'mode': mode,
+        'page': '$page',
+        if (type != null) 'type': type,
+        if (letter != null) 'letter': letter,
+      });
 
   Future<List<AnimeItem>> search(String query) =>
       _items('/search', {'q': query});
 
-  /// Full detail including episodes for one anime.
+  /// Full detail including episodes for one anime. Mirrors the rail cache:
+  /// a warm entry (30m + 5m stale window) is served instantly and a stale one
+  /// backstops network failures, so reopening a title never flashes the error
+  /// view even when the worker cold-builds for the first time.
   Future<AnimeDetail> detail(int id, String slug) async {
+    final key = '$id/$slug';
+    final now = DateTime.now();
+    final hit = _detailCache[key];
+    if (hit != null &&
+        !hit.storedAt.isBefore(now.subtract(_detailTtl + _detailSwr))) {
+      return hit.detail;
+    }
     final http.Response res;
     try {
       res = await _client
           .get(_url('/detail', {'id': '$id', 'slug': slug}))
           .timeout(_timeout);
     } catch (_) {
+      final stale = _detailCache[key];
+      if (stale != null) return stale.detail;
       throw const CatalogFailure('Failed to reach the catalog.');
     }
     if (res.statusCode != 200) {
+      final stale = _detailCache[key];
+      if (stale != null) return stale.detail;
       throw CatalogFailure('Catalog error ${res.statusCode}.');
     }
     final data = jsonDecode(res.body);
     if (data is! Map<String, dynamic> || data['ok'] != true) {
       throw CatalogFailure('Nothing here.');
     }
-    return AnimeDetail.fromJson(data);
+    final detail = AnimeDetail.fromJson(data);
+    _detailCache[key] =
+        _DetailEntry(detail: detail, storedAt: DateTime.now());
+    return detail;
   }
+}
+
+/// A memoized detail result with its creation time (for TTL-based reuse).
+class _DetailEntry {
+  const _DetailEntry({required this.detail, required this.storedAt});
+
+  final AnimeDetail detail;
+  final DateTime storedAt;
 }
 
 /// A memoized rail result with its creation time (for TTL-based reuse).

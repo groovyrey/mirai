@@ -6,6 +6,7 @@ import '../services/watch_history.dart';
 import '../theme/app_theme.dart';
 import '../widgets/mirai_wordmark.dart';
 import 'about_screen.dart';
+import 'browse_screen.dart';
 import 'home_screen.dart';
 import 'saved_screen.dart';
 import 'search_screen.dart';
@@ -23,9 +24,12 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _index = 0;
 
+  static const _settingsIndex = 5;
+
   static const _tabs = [
     (icon: Icons.play_arrow_rounded, label: 'Home'),
     (icon: Icons.local_fire_department_rounded, label: 'Trending'),
+    (icon: Icons.grid_view_rounded, label: 'Browse'),
     (icon: Icons.bookmark_rounded, label: 'Saved'),
     (icon: Icons.search_rounded, label: 'Find'),
     (icon: Icons.settings_rounded, label: 'Settings'),
@@ -56,6 +60,7 @@ class _ShellScaffold extends StatelessWidget {
     final sections = [
       const HomeScreen(key: ValueKey('home')),
       const TrendingScreen(key: ValueKey('trending')),
+      const BrowseScreen(key: ValueKey('browse')),
       const SavedScreen(key: ValueKey('saved')),
       const SearchScreen(key: ValueKey('search')),
       const SettingsScreen(key: ValueKey('settings')),
@@ -111,7 +116,7 @@ class _Header extends StatelessWidget {
                   const MiraiWordmark(size: 20),
                   const Spacer(),
                   GestureDetector(
-                    onTap: () => onTab(4),
+                    onTap: () => onTab(_AppShellState._settingsIndex),
                     child: Text(
                       'v1.0.0',
                       style: context.appTextTheme.labelSmall?.copyWith(

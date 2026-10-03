@@ -52,35 +52,44 @@ class _DetailScreenState extends State<DetailScreen> {
   }
 
   Future<void> _load() async {
-    try {
-      final detail = await CatalogService().detail(widget.item.id, widget.item.slug);
-      if (!mounted) return;
-      setState(() {
-        _detail = detail;
-        _loading = false;
-        _visibleEps = _epsPerPage;
-      });
-      // Auto-play if initial episode was specified
-      if (widget.initialEp != null) {
-        final episodes = detail.episodes;
-        final targetEp = episodes.firstWhere(
-          (e) => e.ep == widget.initialEp,
-          orElse: () => episodes.first,
-        );
-        final dub = widget.initialDub ?? false;
-        if (mounted) {
-          final app = context.read<AppState>();
-          final pref = app.preferredSv(widget.item.id.toString());
-          _play(context, widget.item, targetEp, dub,
-              sv: 2, embed: pref == 0);
+    // One retry: a first-open cold build on the worker can exceed the request
+    // timeout once (large titles), but the retry joins the in-flight build and
+    // the fresh cache. Only show the error view after both attempts fail.
+    for (var attempt = 1; attempt <= 2; attempt++) {
+      try {
+        final detail =
+            await CatalogService().detail(widget.item.id, widget.item.slug);
+        if (!mounted) return;
+        setState(() {
+          _detail = detail;
+          _loading = false;
+          _visibleEps = _epsPerPage;
+        });
+        // Auto-play if initial episode was specified
+        if (widget.initialEp != null) {
+          final episodes = detail.episodes;
+          final targetEp = episodes.firstWhere(
+            (e) => e.ep == widget.initialEp,
+            orElse: () => episodes.first,
+          );
+          final dub = widget.initialDub ?? false;
+          if (mounted) {
+            final app = context.read<AppState>();
+            final pref = app.preferredSv(widget.item.id.toString());
+            _play(context, widget.item, targetEp, dub,
+                sv: 2, embed: pref == 0);
+          }
+        }
+        return;
+      } catch (_) {
+        if (attempt == 2) {
+          if (!mounted) return;
+          setState(() {
+            _error = true;
+            _loading = false;
+          });
         }
       }
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _error = true;
-        _loading = false;
-      });
     }
   }
 
