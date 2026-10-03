@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
-/// Mirai's wordmark: a wide display glyph plus a volt slash. Distinct from
-/// Kumi's rounded mark — this reads like broadcast identification.
+/// Mirai's wordmark: the squared logo mark plus a wide display glyph. Distinct
+/// from Kumi's rounded mark — this reads like broadcast identification.
 class MiraiWordmark extends StatelessWidget {
   const MiraiWordmark({super.key, this.size = 24});
 
@@ -15,12 +15,13 @@ class MiraiWordmark extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Container(
-          width: size * 0.18,
+        Image.asset(
+          'assets/logo/mirai_logo.png',
+          width: size * 0.9,
           height: size * 0.9,
-          color: context.appAccent,
+          fit: BoxFit.contain,
         ),
-        SizedBox(width: size * 0.12),
+        SizedBox(width: size * 0.35),
         Text(
           'MIRAI',
           style: context.appTextTheme.displayMedium?.copyWith(
