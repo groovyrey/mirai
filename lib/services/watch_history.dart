@@ -62,6 +62,8 @@ class WatchHistory extends ChangeNotifier {
   final List<HistoryEntry> _entries = [];
   bool _loaded = false;
 
+  bool get isLoaded => _loaded;
+
   Future<void> ensureLoaded() async {
     if (_loaded) return;
     try {

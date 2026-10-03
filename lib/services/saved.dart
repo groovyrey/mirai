@@ -38,6 +38,8 @@ class Saved extends ChangeNotifier {
   final List<SavedEntry> _entries = [];
   bool _loaded = false;
 
+  bool get isLoaded => _loaded;
+
   Future<void> ensureLoaded() async {
     if (_loaded) return;
     try {

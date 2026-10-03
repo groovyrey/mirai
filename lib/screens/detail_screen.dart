@@ -1,9 +1,9 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/anime_item.dart';
 import '../services/catalog_service.dart';
-import '../services/resolver_service.dart';
 import '../services/saved.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
@@ -30,6 +30,9 @@ class _DetailScreenState extends State<DetailScreen> {
   AnimeDetail? _detail;
   bool _loading = true;
   bool _error = false;
+  int _visibleEps = 10;
+
+  static const _epsPerPage = 10;
 
   @override
   void initState() {
@@ -55,6 +58,7 @@ class _DetailScreenState extends State<DetailScreen> {
       setState(() {
         _detail = detail;
         _loading = false;
+        _visibleEps = _epsPerPage;
       });
       // Auto-play if initial episode was specified
       if (widget.initialEp != null) {
@@ -65,7 +69,10 @@ class _DetailScreenState extends State<DetailScreen> {
         );
         final dub = widget.initialDub ?? false;
         if (mounted) {
-          _play(context, widget.item, targetEp, dub, sv: null);
+          final app = context.read<AppState>();
+          final pref = app.preferredSv(widget.item.id.toString());
+          _play(context, widget.item, targetEp, dub,
+              sv: 2, embed: pref == 0);
         }
       }
     } catch (_) {
@@ -160,7 +167,10 @@ class _DetailScreenState extends State<DetailScreen> {
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(20, 14, 20, 32),
             sliver: SliverList.builder(
-              itemCount: episodes.length + (episodes.isEmpty ? 1 : 0),
+              itemCount: episodes.isEmpty
+                  ? 1
+                  : (episodes.length > _visibleEps ? _visibleEps : episodes.length) +
+                      (episodes.length > _visibleEps ? 1 : 0),
               itemBuilder: (context, index) {
                 if (episodes.isEmpty) {
                   return Text(
@@ -168,12 +178,15 @@ class _DetailScreenState extends State<DetailScreen> {
                     style: context.appTextTheme.bodyMedium,
                   );
                 }
+                if (index >= episodes.length) {
+                  return _loadMoreButton(context);
+                }
                 return _EpisodeRow(
                   episode: episodes[index],
                   hasDub: hasDub,
                   defaultDub: defaultDub,
-                  onTap: (dub) =>
-                      _play(context, item, episodes[index], dub, sv: prefSv),
+                  onTap: (dub) => _play(context, item, episodes[index], dub,
+                      sv: 2, embed: prefSv == 0),
                 );
               },
             ),
@@ -199,25 +212,23 @@ class _DetailScreenState extends State<DetailScreen> {
           child: SizedBox(
             width: double.infinity,
             height: MediaQuery.of(context).size.width * 9 / 16,
-            child: Image.network(
-              detail.coverUrl!,
+            child: CachedNetworkImage(
+              imageUrl: detail.coverUrl!,
               fit: BoxFit.cover,
               filterQuality: FilterQuality.high,
-              loadingBuilder: (context, child, progress) => progress == null
-                  ? child
-                  : Container(
-                      color: context.appSurfaceVariant,
-                      alignment: Alignment.center,
-                      child: SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: context.appAccent,
-                        ),
-                      ),
-                    ),
-              errorBuilder: (context, error, stack) => const SizedBox.shrink(),
+              placeholder: (_, __) => Container(
+                color: context.appSurfaceVariant,
+                alignment: Alignment.center,
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: context.appAccent,
+                  ),
+                ),
+              ),
+              errorWidget: (_, __, ___) => const SizedBox.shrink(),
             ),
           ),
         ),
@@ -250,64 +261,97 @@ class _DetailScreenState extends State<DetailScreen> {
       ],
     ];
 
-    final meta = <({IconData icon, String label})>[
+    final meta = <({IconData icon, String label, String value})>[
       if (hasSub)
         (
           icon: Icons.closed_caption_rounded,
-          label: 'SUB ${detail.subEps}',
+          label: 'Episodes',
+          value: '${detail.subEps} sub${hasDub ? ' / ${detail.dubEps} dub' : ''}',
         ),
-      if (hasDub)
-        (icon: Icons.translate_rounded, label: 'DUB ${detail.dubEps}'),
+      if (!hasSub && hasDub)
+        (
+          icon: Icons.translate_rounded,
+          label: 'Episodes',
+          value: '${detail.dubEps} dub',
+        ),
       if (detail.totalEps > 0 && detail.totalEps != maxEp)
         (
           icon: Icons.video_collection_outlined,
-          label: '${detail.totalEps} EPS',
+          label: 'Total',
+          value: '${detail.totalEps} eps',
         ),
       if (item.rating != null && item.rating!.isNotEmpty)
-        (icon: Icons.star_rounded, label: item.rating!),
+        (icon: Icons.star_rounded, label: 'Rating', value: item.rating!),
       if (item.type != null && item.type!.isNotEmpty)
-        (icon: _typeIcon(item.type!), label: item.type!),
+        (icon: _typeIcon(item.type!), label: 'Type', value: item.type!),
       if (detail.ageRating != null && detail.ageRating!.isNotEmpty)
-        (icon: Icons.shield_outlined, label: detail.ageRating!),
+        (
+          icon: Icons.shield_outlined,
+          label: 'Age rating',
+          value: detail.ageRating!,
+        ),
       if (detail.quality != null && detail.quality!.isNotEmpty)
-        (icon: Icons.high_quality_outlined, label: detail.quality!),
+        (
+          icon: Icons.high_quality_outlined,
+          label: 'Quality',
+          value: detail.quality!,
+        ),
       if (detail.status != null && detail.status!.isNotEmpty)
-        (icon: _statusIcon(detail.status!), label: detail.status!),
+        (icon: _statusIcon(detail.status!), label: 'Status', value: detail.status!),
       if (detail.premiered != null && detail.premiered!.isNotEmpty)
         (
           icon: Icons.calendar_month_outlined,
-          label: detail.premiered!,
+          label: 'Premiered',
+          value: detail.premiered!,
         ),
       if (detail.country != null && detail.country!.isNotEmpty)
-        (icon: Icons.public_rounded, label: detail.country!),
+        (icon: Icons.public_rounded, label: 'Country', value: detail.country!),
       if (detail.source != null && detail.source!.isNotEmpty)
         (
           icon: Icons.menu_book_outlined,
-          label: 'Source ${detail.source}',
+          label: 'Source',
+          value: detail.source!,
         ),
       if (detail.duration != null && detail.duration!.isNotEmpty)
-        (icon: Icons.timer_outlined, label: detail.duration!),
+        (icon: Icons.timer_outlined, label: 'Duration', value: detail.duration!),
       if (detail.aired != null && detail.aired!.isNotEmpty)
-        (
-          icon: Icons.event_outlined,
-          label: 'Aired ${detail.aired}',
-        ),
+        (icon: Icons.event_outlined, label: 'Aired', value: detail.aired!),
       if (detail.broadcast != null && detail.broadcast!.isNotEmpty)
         (
           icon: Icons.schedule_rounded,
-          label: 'Broadcast ${detail.broadcast}',
+          label: 'Broadcast',
+          value: detail.broadcast!,
         ),
       if (detail.reviews != null && detail.reviews!.isNotEmpty)
         (
           icon: Icons.rate_review_outlined,
-          label: '${detail.reviews} ratings',
+          label: 'Ratings',
+          value: detail.reviews!,
         ),
-    ];
-    final tags = <String>[
-      ...detail.genres,
-      ...detail.studios,
-      ...detail.producers,
-      ...detail.licensors,
+      if (detail.genres.isNotEmpty)
+        (
+          icon: Icons.category_outlined,
+          label: 'Genres',
+          value: detail.genres.join(', '),
+        ),
+      if (detail.studios.isNotEmpty)
+        (
+          icon: Icons.theaters_outlined,
+          label: 'Studios',
+          value: detail.studios.join(', '),
+        ),
+      if (detail.producers.isNotEmpty)
+        (
+          icon: Icons.factory_outlined,
+          label: 'Producers',
+          value: detail.producers.join(', '),
+        ),
+      if (detail.licensors.isNotEmpty)
+        (
+          icon: Icons.local_shipping_outlined,
+          label: 'Licensors',
+          value: detail.licensors.join(', '),
+        ),
     ];
 
     final hasEps = detail.episodes.isNotEmpty;
@@ -317,16 +361,9 @@ class _DetailScreenState extends State<DetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ...children,
-          if (meta.isNotEmpty || tags.isNotEmpty) ...[
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final b in meta) _metaBadge(context, b.icon, b.label),
-                for (final t in tags) _tagChip(context, t),
-              ],
-            ),
+          if (meta.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _metaList(context, meta),
           ],
           if (hasEps) ...[
             const SizedBox(height: 20),
@@ -339,18 +376,17 @@ class _DetailScreenState extends State<DetailScreen> {
                 _sourceChip(
                   context,
                   item,
-                  sv: null,
-                  label: 'Auto',
-                  active: prefSv == null,
+                  embed: false,
+                  label: 'DoodStream',
+                  active: prefSv != 0,
                 ),
-                for (final sv in ResolverService.serverOrder)
-                  _sourceChip(
-                    context,
-                    item,
-                    sv: sv,
-                    label: ResolverService.serverNames[sv] ?? 'S$sv',
-                    active: prefSv == sv,
-                  ),
+                _sourceChip(
+                  context,
+                  item,
+                  embed: true,
+                  label: 'Embed',
+                  active: prefSv == 0,
+                ),
               ],
             ),
           ],
@@ -359,44 +395,55 @@ class _DetailScreenState extends State<DetailScreen> {
     );
   }
 
-  Widget _metaBadge(BuildContext context, IconData icon, String label) {
+  Widget _metaList(
+    BuildContext context,
+    List<({IconData icon, String label, String value})> meta,
+  ) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      width: double.infinity,
       decoration: BoxDecoration(
         border: Border.all(color: context.appOutline),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(AppRadius.card),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Column(
         children: [
-          Icon(icon, size: 14, color: context.appAccent),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: context.appTextTheme.labelSmall?.copyWith(
-              fontSize: 11,
-              letterSpacing: 0.4,
-              color: context.appOnSurface,
+          for (var i = 0; i < meta.length; i++) ...[
+            if (i > 0)
+              Divider(height: 1, thickness: 1, color: context.appOutline),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    meta[i].icon,
+                    size: 16,
+                    color: context.appAccent,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      meta[i].label,
+                      style: context.appTextTheme.labelMedium?.copyWith(
+                        color: context.appOnSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Flexible(
+                    child: Text(
+                      meta[i].value,
+                      textAlign: TextAlign.right,
+                      style: context.appTextTheme.labelMedium?.copyWith(
+                        color: context.appOnSurface,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
+          ],
         ],
-      ),
-    );
-  }
-
-  Widget _tagChip(BuildContext context, String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: context.appSurfaceVariant,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: context.appTextTheme.labelSmall?.copyWith(
-          fontSize: 11,
-          color: context.appOnSurfaceVariant,
-        ),
       ),
     );
   }
@@ -404,12 +451,12 @@ class _DetailScreenState extends State<DetailScreen> {
   Widget _sourceChip(
     BuildContext context,
     AnimeItem item, {
-    required int? sv,
+    required bool embed,
     required String label,
     required bool active,
   }) {
     return GestureDetector(
-      onTap: () => _selectSource(context, item, sv),
+      onTap: () => _selectSource(context, item, embed),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
@@ -442,15 +489,15 @@ class _DetailScreenState extends State<DetailScreen> {
     );
   }
 
-  /// Pins [sv] for this anime (null clears the preference) and plays the first
-  /// available episode so the choice is immediately felt.
-  void _selectSource(BuildContext context, AnimeItem item, int? sv) {
+  /// Pins the source choice for this anime (2 = DoodStream native, 0 = embed)
+  /// and plays the first available episode so the choice is immediately felt.
+  void _selectSource(BuildContext context, AnimeItem item, bool embed) {
     final app = context.read<AppState>();
-    app.setPreferredSv(item.id.toString(), sv);
+    app.setPreferredSv(item.id.toString(), embed ? 0 : 2);
     final episodes = _detail!.episodes;
     if (episodes.isEmpty) return;
     _play(context, item, episodes.first, app.audioMode == AudioMode.dub,
-        sv: sv);
+        sv: 2, embed: embed);
   }
 
   IconData _statusIcon(String status) {
@@ -480,6 +527,7 @@ class _DetailScreenState extends State<DetailScreen> {
     Episode episode,
     bool dub, {
     int? sv,
+    bool embed = false,
   }) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -488,7 +536,35 @@ class _DetailScreenState extends State<DetailScreen> {
           ep: episode.ep,
           dub: dub,
           sv: sv,
+          embed: embed,
           subtitle: 'EP ${episode.ep}',
+        ),
+      ),
+    );
+  }
+
+  Widget _loadMoreButton(BuildContext context) {
+    final remaining = _detail!.episodes.length - _visibleEps;
+    return Padding(
+      padding: const EdgeInsets.only(top: 10, bottom: 4),
+      child: SizedBox(
+        width: double.infinity,
+        child: OutlinedButton(
+          onPressed: () => setState(() => _visibleEps += _epsPerPage),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: context.appAccent,
+            side: BorderSide(color: context.appOutline),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.field),
+            ),
+          ),
+          child: Text(
+            'LOAD $remaining MORE',
+            style: context.appTextTheme.labelSmall?.copyWith(
+              letterSpacing: 1.5,
+            ),
+          ),
         ),
       ),
     );

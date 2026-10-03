@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -55,11 +56,17 @@ class _SavedBody extends StatefulWidget {
 }
 
 class _SavedBodyState extends State<_SavedBody> {
+  bool _loading = true;
+
   @override
   void initState() {
     super.initState();
-    Saved.instance.ensureLoaded();
-    WatchHistory.instance.ensureLoaded();
+    Future.wait([
+      Saved.instance.ensureLoaded(),
+      WatchHistory.instance.ensureLoaded(),
+    ]).then((_) {
+      if (mounted) setState(() => _loading = false);
+    });
   }
 
   @override
@@ -68,6 +75,8 @@ class _SavedBodyState extends State<_SavedBody> {
         context.select<WatchHistory, List<HistoryEntry>>((s) => s.entries);
     final saved = context.select<Saved, List<AnimeDetail>>((s) => s.items);
     final nothing = history.isEmpty && saved.isEmpty;
+
+    if (_loading) return const Center(child: CircularProgressIndicator());
 
     return ListView(
       padding: const EdgeInsets.only(bottom: 32),
@@ -207,7 +216,13 @@ class _SavedTile extends StatelessWidget {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(AppRadius.card),
                 child: item.hasImage
-                    ? Image.network(item.image!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: context.appSurfaceVariant))
+                    ? CachedNetworkImage(
+                        imageUrl: item.image!,
+                        fit: BoxFit.cover,
+                        errorWidget: (_, __, ___) => Container(
+                          color: context.appSurfaceVariant,
+                        ),
+                      )
                     : ColoredBox(color: context.appSurfaceVariant),
               ),
             ),

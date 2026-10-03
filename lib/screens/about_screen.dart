@@ -17,9 +17,9 @@ class AboutScreen extends StatelessWidget {
       'anime nights: search the catalog, pick a title, and start watching in '
       'seconds. No accounts, no ads, no noise.';
 
-  static const _sourceNote = 'Mirai plays through publicly available sources '
-      'hosted on aniwaves. Source availability varies; if one fails, Mirai '
-      'falls back to the next working one.';
+static const _sourceNote = 'Mirai plays through DoodStream, hosted on '
+    'aniwaves. Native streaming is preferred; the embed player is used '
+    'when a direct stream is unavailable.';
 
   static final _features = [
     (
@@ -48,27 +48,7 @@ class AboutScreen extends StatelessWidget {
     (
       'DoodStream',
       Icons.play_circle_outline_rounded,
-      'Primary native source',
-    ),
-    (
-      'Vidplay',
-      Icons.ondemand_video_outlined,
-      'Embed backup',
-    ),
-    (
-      'DatSaV',
-      Icons.smart_display_outlined,
-      'Embed backup',
-    ),
-    (
-      'MyCloud',
-      Icons.cloud_outlined,
-      'Embed backup',
-    ),
-    (
-      'BYFMS',
-      Icons.video_collection_outlined,
-      'Embed backup',
+      'Primary native + embed source',
     ),
   ];
 
@@ -224,7 +204,7 @@ class AboutScreen extends StatelessWidget {
             child: Column(
               children: [
                 Text(
-                  'Mirai is a hobby project — built free, open, and without '
+                  'Mirai is a hobby project, built free, open, and without '
                   'trackers. If it helps you find a show tonight, that is '
                   'enough.',
                   textAlign: TextAlign.center,

@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../models/anime_item.dart';
@@ -29,6 +30,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<HistoryEntry>? _continueWatching;
   List<SavedEntry>? _queue;
   String? _error;
+  bool _loading = false;
 
   @override
   void initState() {
@@ -37,6 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _load() async {
+    setState(() => _loading = true);
     try {
       // Ensure local stores are loaded
       await Future.wait([
@@ -51,6 +54,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ]);
       if (!mounted) return;
       setState(() {
+        _loading = false;
         _lead = results[0];
         _rail = results[1];
         _newest = results[2];
@@ -59,7 +63,12 @@ class _HomeScreenState extends State<HomeScreen> {
         _error = null;
       });
     } catch (_) {
-      if (mounted) setState(() => _error = 'The broadcast is down.');
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = 'The broadcast is down.';
+        });
+      }
     }
   }
 
@@ -72,6 +81,7 @@ class _HomeScreenState extends State<HomeScreen> {
         padding: const EdgeInsets.only(bottom: 32),
         children: [
           _intro(context),
+          if (_loading && _lead == null) _loadingState(context),
           if (_error != null) _errorState(context),
           if (_lead != null) _leadSection(context),
           if (_rail != null) _railSection(context),
@@ -269,6 +279,38 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _loadingState(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+          child: Text(
+            'TUNING THE SIGNAL…',
+            style: context.appTextTheme.labelSmall?.copyWith(
+              color: context.appOnSurfaceVariant,
+              letterSpacing: 2,
+            ),
+          ),
+        ),
+        SizedBox(
+          height: 236,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            scrollDirection: Axis.horizontal,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: 4,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (_, __) => const SizedBox(
+              width: 132,
+              child: _SkeletonCard(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _errorState(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 40, 20, 0),
@@ -343,11 +385,11 @@ class _ContinueCard extends StatelessWidget {
                   aspectRatio: 2 / 3,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(AppRadius.card),
-                    child: Image.network(
-                      entry.item.image ?? '',
+                    child: CachedNetworkImage(
+                      imageUrl: entry.item.image ?? '',
                       fit: BoxFit.cover,
                       filterQuality: FilterQuality.high,
-                      errorBuilder: (_, __, ___) => Container(
+                      errorWidget: (_, __, ___) => Container(
                         color: context.appSurfaceVariant,
                       ),
                     ),
@@ -441,11 +483,11 @@ class _QueueCard extends StatelessWidget {
               aspectRatio: 2 / 3,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(AppRadius.card),
-                child: Image.network(
-                  detail.item.image ?? '',
+                child: CachedNetworkImage(
+                  imageUrl: detail.item.image ?? '',
                   fit: BoxFit.cover,
                   filterQuality: FilterQuality.high,
-                  errorBuilder: (_, __, ___) => Container(
+                  errorWidget: (_, __, ___) => Container(
                     color: context.appSurfaceVariant,
                   ),
                 ),
@@ -473,6 +515,37 @@ class _QueueCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _SkeletonCard extends StatelessWidget {
+  const _SkeletonCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AspectRatio(
+          aspectRatio: 2 / 3,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: context.appSurfaceVariant,
+              borderRadius: BorderRadius.circular(AppRadius.card),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          height: 10,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: context.appSurfaceVariant,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+      ],
     );
   }
 }

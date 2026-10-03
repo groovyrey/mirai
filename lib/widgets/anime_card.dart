@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../models/anime_item.dart';
@@ -26,10 +27,10 @@ class AnimeCard extends StatelessWidget {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(AppRadius.card),
                   child: item.hasImage
-                      ? Image.network(
-                          item.image!,
+                      ? CachedNetworkImage(
+                          imageUrl: item.image!,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _placeholder(context),
+                          errorWidget: (_, __, ___) => _placeholder(context),
                         )
                       : _placeholder(context),
                 ),
@@ -104,8 +105,6 @@ class SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Container(width: 14, height: 2, color: context.appAccent),
-        const SizedBox(width: 8),
         Text(
           text,
           style: context.appTextTheme.labelSmall?.copyWith(
@@ -151,7 +150,10 @@ class LeadCard extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               if (item.hasImage)
-                Image.network(item.image!, fit: BoxFit.cover)
+                CachedNetworkImage(
+                  imageUrl: item.image!,
+                  fit: BoxFit.cover,
+                )
               else
                 ColoredBox(color: context.appSurfaceVariant),
               DecoratedBox(

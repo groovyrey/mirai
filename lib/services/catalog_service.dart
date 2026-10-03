@@ -21,16 +21,43 @@ class CatalogService {
 
   static const _timeout = Duration(seconds: 15);
 
+  // In-memory cache with stale-while-revalidate. The worker already caches
+  // these endpoints, but a session-local snapshot avoids the round trip when
+  // the home rails reload on every open (and yields an instant first frame).
+  static final Map<String, CachedEntry> _cache = {};
+  static const _ttl = Duration(minutes: 10);
+  static const _swr = Duration(minutes: 5);
+
   Uri _url(String path, [Map<String, String>? query]) {
     final base = AppConfig.resolverBase.replaceFirst(RegExp(r'/$'), '');
     return Uri.parse('$base$path').replace(queryParameters: query);
   }
 
+  static List<AnimeItem>? _peek(String key) {
+    final cached = _cache[key];
+    if (cached == null) return null;
+    if (cached.storedAt.isBefore(DateTime.now().subtract(_ttl + _swr))) {
+      _cache.remove(key);
+      return null;
+    }
+    return cached.items;
+  }
+
+  static void _store(String key, List<AnimeItem> items) {
+    _cache[key] = CachedEntry(items: items, storedAt: DateTime.now());
+  }
+
   Future<List<AnimeItem>> _items(String path, [Map<String, String>? query]) async {
+    final key = Uri(path: path, queryParameters: query).toString();
+    final hit = _peek(key);
+    if (hit != null) return hit;
     final http.Response res;
     try {
       res = await _client.get(_url(path, query)).timeout(_timeout);
     } catch (_) {
+      // Serve a stale copy if the network call failed outright.
+      final stale = _cache[key];
+      if (stale != null) return stale.items;
       throw const CatalogFailure('Failed to reach the catalog.');
     }
     if (res.statusCode != 200) {
@@ -45,13 +72,15 @@ class CatalogService {
     }
     final list = data['results'];
     if (list is! List) return const [];
-    return [
+    final items = [
       for (final e in list)
         if (e is Map<String, dynamic>)
           AnimeItem.fromJson(e)
         else if (e is Map)
           AnimeItem.fromJson(e.cast<String, dynamic>()),
     ];
+    _store(key, items);
+    return items;
   }
 
   /// "Trending" is the home rail; [mode] selects trending|updated|newest.
@@ -80,4 +109,12 @@ class CatalogService {
     }
     return AnimeDetail.fromJson(data);
   }
+}
+
+/// A memoized rail result with its creation time (for TTL-based reuse).
+class CachedEntry {
+  const CachedEntry({required this.items, required this.storedAt});
+
+  final List<AnimeItem> items;
+  final DateTime storedAt;
 }

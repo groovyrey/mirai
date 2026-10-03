@@ -31,6 +31,7 @@ class PlayerScreen extends StatefulWidget {
     required this.ep,
     this.dub = false,
     this.sv,
+    this.embed = false,
     this.subtitle,
     this.initialPosition,
   });
@@ -42,6 +43,10 @@ class PlayerScreen extends StatefulWidget {
   /// Optional pinned aniwaves server id. When set, resolution is forced to
   /// that server instead of the worker's default priority.
   final int? sv;
+
+  /// When true the player opens directly in the DoodStream embed instead of
+  /// attempting a direct native stream first.
+  final bool embed;
 
   /// Short label like "EP 05" shown under the title in the top bar.
   final String? subtitle;
@@ -173,6 +178,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
   /// otherwise the worker hands back an embed page which we load in the WebView.
   Future<void> _start() async {
     setState(() => _mode = _PlayerMode.loading);
+    if (widget.embed) {
+      await _startWithEmbed();
+      return;
+    }
     try {
       final source = await _resolver.resolve(
         widget.item,

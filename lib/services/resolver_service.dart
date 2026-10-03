@@ -66,13 +66,9 @@ class ResolverService {
   /// aniwaves server id (as passed to the worker ?sv=) -> display name.
   static const serverNames = <int, String>{
     2: 'DoodStream',
-    4: 'Vidplay',
-    14: 'DatSaV',
-    12: 'MyCloud',
-    1: 'BYFMS',
   };
 
-  static const serverOrder = [2, 4, 14, 12, 1];
+  static const serverOrder = [2];
 
   Future<ResolvedSource> resolve(
     AnimeItem item,
