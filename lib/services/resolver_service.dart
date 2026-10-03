@@ -23,6 +23,7 @@ class ResolvedSource {
     required this.embedMode,
     this.note,
     this.httpHeaders,
+    this.embedUrl,
   });
 
   final String playUrl;
@@ -33,6 +34,11 @@ class ResolvedSource {
   final String quality;
   final bool embedMode;
   final String? note;
+
+  /// The original embed page (DoodStream /e/ wrapper) when [provider] is a
+  /// direct source. Lets the client re-resolve the MP4 from the phone instead
+  /// of trusting a worker-generated CDN token.
+  final String? embedUrl;
 
   /// Extra request headers to attach to the media fetch. Used for direct CDN
   /// playback where the upstream gates on a mobile UA.
@@ -54,6 +60,7 @@ class ResolvedSource {
       quality: data['quality'] as String? ?? 'auto',
       embedMode: embedMode,
       note: data['note'] as String?,
+      embedUrl: data['embedUrl'] as String?,
     );
   }
 }

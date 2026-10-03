@@ -75,6 +75,20 @@ class _PlayerScreenState extends State<PlayerScreen> {
   String? _embedProvider;
   int _nativeAttempts = 0;
 
+  // Native watchdog: retries when the stream stalls instead of leaving the
+  // clock frozen at 0:00 or mid-episode. Guarded by live playing state, so a
+  // user-initiated pause never trips it.
+  Timer? _stallTimer;
+  Duration _lastSeenPosition = Duration.zero;
+  DateTime _lastMovedAt = DateTime.now();
+  int _stallTicks = 0;
+  String? _fatalMessage;
+
+  // Last successful resolution, kept so native recoveries can retry the same
+  // stream and embed fallbacks land on the real embed page.
+  ResolvedSource? _lastSource;
+  String? _lastEmbedUrl;
+
   // Settings snapshot taken when the player opens.
   bool _hardwareDecode = false;
   double _defaultRate = 1.0;
@@ -116,6 +130,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _positionSub = null;
     _completedSub = null;
     _hideTimer?.cancel();
+    _stopStallWatchdog();
     unawaited(_errorSub?.cancel());
     _errorSub = null;
     EmbedAdGuard.detach();
@@ -191,39 +206,61 @@ class _PlayerScreenState extends State<PlayerScreen> {
         proxy: true,
       );
       if (!mounted) return;
+      _lastSource = source;
+      _lastEmbedUrl = source.embedUrl?.isNotEmpty == true
+          ? source.embedUrl
+          : (source.embedMode ? source.playUrl : null);
       if (source.embedMode) {
-        final direct = await _tryClientDoodNative(source);
-        if (!mounted) return;
-        if (direct != null) {
-          final started = await _playNative(direct);
-          if (mounted && started) return;
-        }
-        _fallbackToEmbed(
-          url: source.playUrl,
+        if (await _tryPlayDoodClient(source)) return;
+        _startEmbedFallback(
+          'Direct playback wasn\'t possible for this title, so Mirai opened the embed player instead.',
+          url: _lastEmbedUrl,
           provider: source.provider,
-          notice: source.note != null && source.note!.isNotEmpty
-              ? 'Direct playback wasn\'t possible for this title, so Mirai opened the embed player instead.'
-              : null,
         );
         return;
       }
-      final started = await _playNative(source);
-      if (!mounted) return;
-      if (!started) {
-        _fallbackToEmbed(
-          url: _embedWrapUrl(),
-          notice:
-              'The direct stream couldn\'t be reached, so Mirai opened the embed player instead.',
-        );
-      }
+      // The worker resolved a direct MP4 (proxied dood). That token is bound
+      // to the worker's IP and its CDN historically starves through the proxy,
+      // so when the original dood embed is available the MP4 is resolved from
+      // the phone instead, with the player streaming straight from dood's CDN.
+      if (await _tryPlayDoodClient(source)) return;
+      if (await _playNative(source)) return;
+      _startEmbedFallback(
+        'The direct stream couldn\'t be reached, so Mirai opened the embed player instead.',
+        url: _lastEmbedUrl,
+        provider: source.provider,
+      );
     } catch (_) {
       if (!mounted) return;
-      _fallbackToEmbed(
-        url: _embedWrapUrl(),
-        notice:
-            'The direct stream couldn\'t be reached, so Mirai opened the embed player instead.',
+      _startEmbedFallback(
+        'The direct stream couldn\'t be reached, so Mirai opened the embed player instead.',
+        url: _lastEmbedUrl,
+        provider: _lastSource?.provider,
       );
     }
+  }
+
+  /// Attempts native playback of a dood source resolved directly on the phone
+  /// from the original embed wrapper, bypassing the proxied (and unreliable)
+  /// worker MP4. Only DoodStream qualifies.
+  Future<bool> _tryPlayDoodClient(ResolvedSource source) async {
+    if (source.provider != 'doodstream' && source.provider != 'dood') {
+      return false;
+    }
+    final direct = await _tryClientDoodNative(source);
+    if (direct == null) return false;
+    final started = await _playNative(direct);
+    return started;
+  }
+
+  /// Replays the last resolution, preferring a fresh phone-side dood token
+  /// before falling back to the worker's proxied MP4.
+  Future<bool> _retryFromLastSource() async {
+    final source = _lastSource;
+    if (source == null) return false;
+    if (await _tryPlayDoodClient(source)) return true;
+    if (source.embedMode) return false;
+    return _playNative(source);
   }
 
   /// The worker hands back a dood embed page when its own network can't pass
@@ -231,10 +268,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
   /// from the phone and played straight from dood's CDN (which blocks CF
   /// egress) with a mobile UA header, no worker proxy in between.
   Future<ResolvedSource?> _tryClientDoodNative(ResolvedSource source) async {
-    if (source.provider != 'dood') return null;
+    if (source.provider != 'doodstream' && source.provider != 'dood') {
+      return null;
+    }
     try {
       final mp4 = await _resolver.resolveDoodNative(
-        source.playUrl,
+        source.embedUrl ?? source.playUrl,
         animeId: widget.item.id,
         ep: widget.ep,
       );
@@ -258,6 +297,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   /// (echovideo / byse / dood wrapper) or the site watch page as a last resort.
   void _fallbackToEmbed({required String url, String? provider, String? notice}) {
     if (!mounted) return;
+    _stopStallWatchdog();
     final controller = _buildController(url);
     setState(() {
       _web = controller;
@@ -270,6 +310,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   /// Starts native playback; returns true when the media actually opened.
+  /// [Media.open] can hang or take very long on flaky dood CDN connections, so
+  /// it is capped with a 25s timeout after which the attempt is abandoned.
   Future<bool> _playNative(ResolvedSource source) async {
     if (_nativeAttempts >= 2) return false;
     _nativeAttempts += 1;
@@ -285,7 +327,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final errorSub = player.stream.error.listen((message) {
       if (!mounted || !identical(_player, player)) return;
       debugPrint('[player] native error: $message');
-      unawaited(_retryAfterRuntimeError());
+      unawaited(_recoverNative('runtime error'));
     });
     _errorSub = errorSub;
     setState(() {
@@ -293,13 +335,20 @@ class _PlayerScreenState extends State<PlayerScreen> {
       _nativeLabel = 'DoodStream';
     });
     try {
-      await player.open(
-        Media(
-          source.playUrl,
-          httpHeaders: source.httpHeaders,
-        ),
-      );
-      if (!mounted) {
+      await _tunePlayer(player);
+      var opened = false;
+      await Future.any<void>([
+        player
+            .open(
+              Media(
+                source.playUrl,
+                httpHeaders: source.httpHeaders,
+              ),
+            )
+            .then((_) => opened = true),
+        Future<void>.delayed(const Duration(seconds: 25)),
+      ]);
+      if (!mounted || !opened) {
         unawaited(errorSub.cancel());
         unawaited(player.dispose());
         return false;
@@ -319,6 +368,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       if (_resumePosition != null) unawaited(_seekAfterOpen(player));
       if (_defaultRate != 1.0) unawaited(player.setRate(_defaultRate));
       if (_keepAwake) unawaited(WakelockPlus.enable());
+      _startStallWatchdog(player);
       _scheduleHide();
       return true;
     } catch (error) {
@@ -329,17 +379,87 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
   }
 
+  /// Applies mpv network and buffer tuning on top of media_kit's defaults
+  /// before media opens. media_kit hardcodes a 5s idle `network-timeout` that
+  /// kills dood CDN connections during slow bursts; backing it off is what
+  /// prevents the frozen-at-0:00 and "stall for ten seconds then resume"
+  /// symptoms on flaky connections.
+  Future<void> _tunePlayer(Player player) async {
+    const props = <String, String>{
+      'network-timeout': '0',
+      'stream-buffer-size': '8192',
+      'demuxer-readahead-secs': '30',
+      'tcp-keepalive': 'yes',
+    };
+    for (final entry in props.entries) {
+      try {
+        await player.setProperty(entry.key, entry.value);
+      } catch (error) {
+        debugPrint('[player] tune ${entry.key} failed: $error');
+      }
+    }
+  }
+
+  /// Polls the player every 3s. While the stream is supposed to be playing,
+  /// any 18s stretch without a position tick is treated as a stall, and after
+  /// two consecutive confirmed stalls the player is recovered. Watching the
+  /// live `playing` state means a user-initiated pause never triggers this.
+  void _startStallWatchdog(Player player) {
+    _stopStallWatchdog();
+    _lastMovedAt = DateTime.now();
+    _stallTicks = 0;
+    _stallTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
+      if (!mounted || !identical(_player, player)) {
+        _stopStallWatchdog();
+        return;
+      }
+      try {
+        if (player.state.completed || !player.state.playing) return;
+      } catch (_) {
+        return;
+      }
+      final idleFor = DateTime.now().difference(_lastMovedAt);
+      if (idleFor < const Duration(seconds: 18)) {
+        _stallTicks = 0;
+        return;
+      }
+      _stallTicks += 1;
+      if (_stallTicks >= 2) {
+        debugPrint(
+          '[player] stall watchdog fired, frozen at $_lastSeenPosition',
+        );
+        await _recoverNative('stall at $_lastSeenPosition');
+      }
+    });
+  }
+
+  void _stopStallWatchdog() {
+    _stallTimer?.cancel();
+    _stallTimer = null;
+  }
+
+  /// Resets the stall timer after any user-driven control or position move.
+  void _touchWatchdog() {
+    _lastMovedAt = DateTime.now();
+    _stallTicks = 0;
+  }
+
   void _onNativePosition(Duration position) {
     _lastPosition = position;
+    _lastSeenPosition = position;
+    _touchWatchdog();
     final now = DateTime.now();
     if (now.difference(_lastSaveAt).inSeconds < 8) return;
     _lastSaveAt = now;
     unawaited(_saveProgress(position));
   }
 
-  /// Tears down the failed native player and falls through to the embed, since
-  /// DoodStream is the only direct source for a given episode.
-  Future<void> _retryAfterRuntimeError() async {
+  /// Tears down the failed native player after a runtime error or a confirmed
+  /// stall, retries the same stream up to the attempt cap, then falls through
+  /// to the embed player so the user isn't left staring at a frozen clock.
+  Future<void> _recoverNative(String reason) async {
+    debugPrint('[player] recover: $reason');
+    _stopStallWatchdog();
     final broken = _player;
     final brokenSub = _errorSub;
     setState(() {
@@ -351,14 +471,38 @@ class _PlayerScreenState extends State<PlayerScreen> {
     unawaited(brokenSub?.cancel());
     await broken?.dispose();
     if (!mounted) return;
+    if (_lastSeenPosition > const Duration(seconds: 8)) {
+      _resumePosition = _lastSeenPosition;
+    }
     if (_nativeAttempts < 2) {
-      await _start();
-    } else {
-      _fallbackToEmbed(
-        url: _embedWrapUrl(),
-        notice:
-            'DoodStream dropped the stream, so Mirai opened the embed player instead.',
-      );
+      final retried = await _retryFromLastSource();
+      if (!mounted) return;
+      if (retried) return;
+    }
+    _startEmbedFallback(
+      'The direct stream kept dropping, so Mirai opened the embed player instead.',
+      url: _lastEmbedUrl,
+      provider: _lastSource?.provider,
+    );
+  }
+
+  /// Opens the real embed player page. [url] is the embed page the worker
+  /// supplied (echovideo / byse / dood wrapper); when it is absent the site
+  /// watch page is the very last resort.
+  void _startEmbedFallback(String? notice, {String? url, String? provider}) {
+    if (!mounted) return;
+    _stopStallWatchdog();
+    try {
+      final target = url ?? _lastEmbedUrl ?? _embedWrapUrl();
+      _fallbackToEmbed(url: target, provider: provider, notice: notice);
+    } catch (error) {
+      debugPrint('[player] embed fallback failed: $error');
+      setState(() {
+        _fatalMessage =
+            'Neither the direct stream nor the embed player could load. '
+            'Check your connection and retry.';
+        _mode = _PlayerMode.error;
+      });
     }
   }
 
@@ -373,6 +517,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void _switchSource(String name) {
     if (name == _currentSourceName()) return;
     _hideTimer?.cancel();
+    _stopStallWatchdog();
     final broken = _player;
     final brokenSub = _errorSub;
     setState(() {
@@ -384,6 +529,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
       _mode = _PlayerMode.loading;
     });
     _errorSub = null;
+    _lastSource = null;
+    _lastEmbedUrl = null;
     unawaited(brokenSub?.cancel());
     unawaited(broken?.dispose());
     if (name == 'embed') {
@@ -407,16 +554,21 @@ class _PlayerScreenState extends State<PlayerScreen> {
         embed: true,
       );
       if (!mounted) return;
+      _lastSource = source;
+      _lastEmbedUrl = source.embedUrl?.isNotEmpty == true
+          ? source.embedUrl
+          : source.playUrl;
       if (source.embedMode) {
-        _fallbackToEmbed(url: source.playUrl, provider: source.provider);
+        if (await _tryPlayDoodClient(source)) return;
+        _startEmbedFallback(null, url: _lastEmbedUrl, provider: source.provider);
       } else {
         // Shouldn't happen with embed:true, but never surprise the user.
         if (await _playNative(source)) return;
-        _fallbackToEmbed(url: _embedWrapUrl());
+        _startEmbedFallback(null, url: _lastEmbedUrl);
       }
     } catch (_) {
       if (!mounted) return;
-      _fallbackToEmbed(url: _embedWrapUrl());
+      _startEmbedFallback(null, url: _lastEmbedUrl);
     }
   }
 
@@ -648,6 +800,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     var target = player.state.position + Duration(seconds: seconds);
     if (target < Duration.zero) target = Duration.zero;
     unawaited(player.seek(target));
+    _touchWatchdog();
   }
 
   Widget _centerPlayPauseButton(BuildContext context, Player player) {
@@ -668,6 +821,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
             } else {
               unawaited(player.playOrPause());
             }
+            _touchWatchdog();
             _scheduleHide();
           },
           icon: Icon(
@@ -899,7 +1053,67 @@ class _PlayerScreenState extends State<PlayerScreen> {
           onTap: _toggleControls,
           child: WebViewWidget(controller: web),
         );
+      case _PlayerMode.error:
+        return _fatalErrorView(context);
     }
+  }
+
+  Widget _fatalErrorView(BuildContext context) {
+    return ColoredBox(
+      color: Colors.black,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 320),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                PhosphorIcons.warningCircle(),
+                color: Colors.white54,
+                size: 48,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Playback failed',
+                style: context.appTextTheme.titleMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _fatalMessage ?? '',
+                textAlign: TextAlign.center,
+                style: context.appTextTheme.bodyMedium?.copyWith(
+                  color: Colors.white70,
+                ),
+              ),
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: () {
+                  _nativeAttempts = 0;
+                  _lastSource = null;
+                  _lastEmbedUrl = null;
+                  _fatalMessage = null;
+                  setState(() => _mode = _PlayerMode.loading);
+                  unawaited(_start());
+                },
+                icon: Icon(PhosphorIcons.arrowsClockwise(), size: 18),
+                label: const Text('Retry'),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  'Close',
+                  style: TextStyle(color: context.appAccent),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _fallbackBanner(BuildContext context) {
@@ -1000,4 +1214,4 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 }
 
-enum _PlayerMode { loading, native, embed }
+enum _PlayerMode { loading, native, embed, error }
