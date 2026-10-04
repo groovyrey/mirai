@@ -63,15 +63,15 @@ jobs:
       - name: Run tests
         run: flutter test
 
-      - name: Build APK (release)
-        run: flutter build apk --release
+      - name: Build APK (release, arm64 only)
+        run: flutter build apk --release --split-per-abi
 
       - name: Name APK with app title and version
         run: |
           VERSION=$(grep '^version:' pubspec.yaml | head -1 | awk '{print $2}')
           VERSION_CLEAN=${VERSION%+*}
-          cp build/app/outputs/flutter-apk/app-release.apk \
-            "build/app/outputs/flutter-apk/Mirai-${VERSION_CLEAN}.apk"
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
+            "build/app/outputs/flutter-apk/Mirai-${VERSION_CLEAN}-arm64.apk"
 
       - name: Determine version
         id: version
@@ -93,13 +93,16 @@ jobs:
         with:
           name: "Mirai ${{ steps.version.outputs.version }}"
           tag_name: ${{ steps.version.outputs.tag }}
-          files: build/app/outputs/flutter-apk/Mirai-${{ steps.version.outputs.version_clean }}.apk
+          body: |
+            First actual Mirai release. arm64 APK only (`--split-per-abi`),
+            release-signed so it installs over any previous Mirai build.
+          files: build/app/outputs/flutter-apk/Mirai-${{ steps.version.outputs.version_clean }}-arm64.apk
           generate_release_notes: true
 
       - name: Prepare beta APK filename
         if: github.ref == 'refs/heads/main'
         run: |
-          cp build/app/outputs/flutter-apk/Mirai-${{ steps.version.outputs.version_clean }}.apk \
+          cp build/app/outputs/flutter-apk/Mirai-${{ steps.version.outputs.version_clean }}-arm64.apk \
              build/app/outputs/flutter-apk/Mirai-${{ steps.version.outputs.version_clean }}-beta.apk
 
       - name: Publish rolling beta pre-release
@@ -111,6 +114,8 @@ jobs:
           body: |
             Rolling test build from `main`. Release-signed with the real
             keystore, so it installs over any previous Mirai build.
+
+            arm64 APK only (`--split-per-abi`).
 
             This is a pre-release for testing before the version is cut to a
             real release. The stable app never announces it — only install it
