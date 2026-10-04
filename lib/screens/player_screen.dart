@@ -34,6 +34,7 @@ class PlayerScreen extends StatefulWidget {
     this.embed = false,
     this.subtitle,
     this.initialPosition,
+    this.episodes,
   });
 
   final AnimeItem item;
@@ -53,6 +54,11 @@ class PlayerScreen extends StatefulWidget {
 
   /// Resume position passed from the "continue watching" row.
   final Duration? initialPosition;
+
+  /// Full episode list for the title, used to enable prev/next navigation.
+  /// When omitted (e.g. player opened from continue watching) the prev/next
+  /// buttons are hidden.
+  final List<Episode>? episodes;
 
   @override
   State<PlayerScreen> createState() => _PlayerScreenState();
@@ -187,6 +193,73 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   String _embedWrapUrl() =>
       aniwavesEmbedUrl(id: widget.item.id, slug: widget.item.slug, ep: widget.ep);
+
+  bool get _hasNeighborData => widget.episodes != null && widget.episodes!.isNotEmpty;
+
+  Episode? get _prevEpisode => _neighborEpisode(-1);
+
+  Episode? get _nextEpisode => _neighborEpisode(1);
+
+  /// Picks the closest available episode from the current one in [dir]
+  /// direction, preferring the current audio track and falling back to the
+  /// other one when that number only exists with different audio.
+  Episode? _neighborEpisode(int dir) {
+    final episodes = widget.episodes;
+    if (episodes == null || episodes.isEmpty) return null;
+    final current = widget.ep;
+    Episode? best;
+    Episode? fallback;
+    for (final e in episodes) {
+      if (dir < 0 ? e.ep < current : e.ep > current) {
+        final sameTrack = widget.dub ? e.dub : e.sub;
+        if (sameTrack &&
+            (best == null ||
+                (dir < 0 ? e.ep > best.ep : e.ep < best.ep))) {
+          best = e;
+        }
+        if (fallback == null ||
+            (dir < 0 ? e.ep > fallback.ep : e.ep < fallback.ep)) {
+          fallback = e;
+        }
+      }
+    }
+    return best ?? fallback;
+  }
+
+  /// Swaps the current player for the neighboring episode in place so the back
+  /// button still returns to the detail page, keeping the current source and
+  /// the user's audio track.
+  void _openEpisode(Episode target) {
+    final embed = widget.embed || _mode == _PlayerMode.embed;
+    final sv = widget.sv ?? 2;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (_) => PlayerScreen(
+          item: widget.item,
+          ep: target.ep,
+          dub: widget.dub,
+          sv: sv,
+          embed: embed,
+          subtitle: 'EP ${target.ep}',
+          episodes: widget.episodes,
+        ),
+      ),
+    );
+  }
+
+  Widget _episodeNavButton(
+    BuildContext context, {
+    required bool enabled,
+    required VoidCallback onTap,
+    required IconData icon,
+    required String tooltip,
+  }) {
+    return IconButton(
+      onPressed: enabled ? onTap : null,
+      tooltip: tooltip,
+      icon: Icon(icon, color: enabled ? Colors.white : Colors.white24, size: 26),
+    );
+  }
 
   /// Native-first. The worker picks the best server for the episode: when
   /// DoodStream resolves we get a real MP4 and play it with media_kit (the
@@ -1208,6 +1281,22 @@ class _PlayerScreenState extends State<PlayerScreen> {
               ],
             ),
           ),
+          if (_hasNeighborData) ...[
+            _episodeNavButton(
+              context,
+              enabled: _prevEpisode != null,
+              onTap: () => _openEpisode(_prevEpisode!),
+              icon: Icons.skip_previous_rounded,
+              tooltip: 'Previous episode',
+            ),
+            _episodeNavButton(
+              context,
+              enabled: _nextEpisode != null,
+              onTap: () => _openEpisode(_nextEpisode!),
+              icon: Icons.skip_next_rounded,
+              tooltip: 'Next episode',
+            ),
+          ],
           IconButton(
             onPressed: () => _showSourceSheet(context),
             tooltip: 'Switch source',

@@ -159,7 +159,13 @@ class _DetailScreenState extends State<DetailScreen> {
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-            child: SectionLabel(text: 'EPISODES'),
+            child: SectionLabel(
+              text: 'EPISODES',
+              onMore: episodes.length > 12
+                  ? () => _showEpisodeLocator(context)
+                  : null,
+              moreLabel: 'LOCATE',
+            ),
           ),
         ),
         if (!hasSub && !hasDub)
@@ -548,7 +554,38 @@ class _DetailScreenState extends State<DetailScreen> {
           sv: sv,
           embed: embed,
           subtitle: 'EP ${episode.ep}',
+          episodes: _detail?.episodes,
         ),
+      ),
+    );
+  }
+
+  /// Opens a searchable sheet that locates episodes by number, handy for
+  /// titles with hundreds of episodes (One Piece, Detective Conan, ...).
+  void _showEpisodeLocator(BuildContext context) {
+    final detail = _detail;
+    if (detail == null || detail.episodes.isEmpty) return;
+    final app = context.read<AppState>();
+    final defaultDub = app.audioMode == AudioMode.dub;
+    final prefSv = app.preferredSv(detail.item.id.toString());
+    final hasDub = detail.dubEps > 0;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: context.appSurface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) => _EpisodeLocatorSheet(
+        item: detail.item,
+        episodes: detail.episodes,
+        hasDub: hasDub,
+        defaultDub: defaultDub,
+        onPlay: (episode, dub) {
+          Navigator.pop(sheetContext);
+          _play(context, detail.item, episode, dub,
+              sv: 2, embed: prefSv == 0);
+        },
       ),
     );
   }
@@ -675,6 +712,210 @@ if (subActive) ...[
           color: context.appOutline,
         ),
       ],
+    );
+  }
+}
+
+/// Searchable episode list for long-run titles. Typing a number narrows the
+/// list to episodes whose number contains the typed digits; tapping one plays
+/// it directly with the current audio settings.
+class _EpisodeLocatorSheet extends StatefulWidget {
+  const _EpisodeLocatorSheet({
+    required this.item,
+    required this.episodes,
+    required this.hasDub,
+    required this.defaultDub,
+    required this.onPlay,
+  });
+
+  final AnimeItem item;
+  final List<Episode> episodes;
+  final bool hasDub;
+  final bool defaultDub;
+  final void Function(Episode episode, bool dub) onPlay;
+
+  @override
+  State<_EpisodeLocatorSheet> createState() => _EpisodeLocatorSheetState();
+}
+
+class _EpisodeLocatorSheetState extends State<_EpisodeLocatorSheet> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final query = _controller.text.trim();
+    final matches = query.isEmpty
+        ? const <Episode>[]
+        : widget.episodes
+            .where((e) => e.ep.toString().contains(query))
+            .toList();
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.75,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'LOCATE EPISODE',
+                      style: context.appTextTheme.titleMedium?.copyWith(
+                        color: context.appOnSurface,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Type a number such as 568 to find it.',
+                      style: context.appTextTheme.bodySmall?.copyWith(
+                        color: context.appOnSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _controller,
+                      autofocus: true,
+                      keyboardType: TextInputType.number,
+                      textInputAction: TextInputAction.search,
+                      style: context.appTextTheme.bodyMedium?.copyWith(
+                        color: context.appOnSurface,
+                      ),
+                      cursorColor: context.appAccent,
+                      decoration: InputDecoration(
+                        hintText: '1, 24, 568 ...',
+                        hintStyle: context.appTextTheme.bodyMedium?.copyWith(
+                          color: context.appOnSurfaceVariant,
+                        ),
+                        prefixIcon: Icon(
+                          Icons.search_rounded,
+                          color: context.appOnSurfaceVariant,
+                        ),
+                        filled: true,
+                        fillColor: context.appSurfaceVariant,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(AppRadius.field),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    if (query.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        matches.isEmpty
+                            ? 'No episode matches "$query".'
+                            : '${matches.length} match${matches.length == 1 ? '' : 'es'}.',
+                        style: context.appTextTheme.bodySmall?.copyWith(
+                          color: context.appOnSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (matches.isEmpty)
+                const SizedBox(height: 40)
+              else
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.only(bottom: 8),
+                    itemCount: matches.length,
+                    itemBuilder: (context, index) {
+                      final episode = matches[index];
+                      final dubActive = episode.dub && widget.hasDub;
+                      return Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () => widget.onPlay(episode, widget.defaultDub),
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+                            child: Row(
+                              children: [
+                                SizedBox(
+                                  width: 46,
+                                  child: Text(
+                                    episode.ep.toString().padLeft(2, '0'),
+                                    style:
+                                        context.appTextTheme.labelSmall?.copyWith(
+                                      fontSize: 12,
+                                      color: context.appAccent,
+                                      letterSpacing: 2,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    'EP ${episode.ep}',
+                                    style: context.appTextTheme.titleMedium
+                                        ?.copyWith(color: context.appOnSurface),
+                                  ),
+                                ),
+                                if (episode.sub)
+                                  _audioTag(
+                                    context,
+                                    'SUB',
+                                    filled: true,
+                                  ),
+                                if (dubActive) ...[
+                                  const SizedBox(width: 8),
+                                  _audioTag(context, 'DUB', filled: false),
+                                ],
+                                const SizedBox(width: 8),
+                                Icon(
+                                  Icons.play_arrow_rounded,
+                                  size: 20,
+                                  color: context.appOnSurfaceVariant,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _audioTag(BuildContext context, String label, {required bool filled}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: filled ? context.appAccent : context.appSurfaceVariant,
+        borderRadius: BorderRadius.circular(AppRadius.chip),
+      ),
+      child: Text(
+        label,
+        style: context.appTextTheme.labelSmall?.copyWith(
+          fontSize: 9,
+          color: filled ? context.appOnAccent : context.appOnSurfaceVariant,
+        ),
+      ),
     );
   }
 }

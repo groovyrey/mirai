@@ -96,10 +96,16 @@ class AnimeCard extends StatelessWidget {
 
 /// A fine-hairline section label used above rails.
 class SectionLabel extends StatelessWidget {
-  const SectionLabel({super.key, required this.text, this.onMore});
+  const SectionLabel({
+    super.key,
+    required this.text,
+    this.onMore,
+    this.moreLabel = 'VIEW ALL',
+  });
 
   final String text;
   final VoidCallback? onMore;
+  final String moreLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -117,7 +123,7 @@ class SectionLabel extends StatelessWidget {
           GestureDetector(
             onTap: onMore,
             child: Text(
-              'VIEW ALL',
+              moreLabel,
               style: context.appTextTheme.labelSmall?.copyWith(
                 fontSize: 10,
                 color: context.appOnSurfaceVariant,

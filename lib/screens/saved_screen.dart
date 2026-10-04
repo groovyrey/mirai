@@ -121,6 +121,14 @@ class _SavedBodyState extends State<_SavedBody> {
   }
 
   void _resume(BuildContext context, HistoryEntry entry) {
+    AnimeDetail? detail;
+    final saved = Saved.instance.items;
+    for (var i = 0; i < saved.length; i++) {
+      if (saved[i].item.id == entry.item.id) {
+        detail = saved[i];
+        break;
+      }
+    }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => PlayerScreen(
@@ -129,6 +137,7 @@ class _SavedBodyState extends State<_SavedBody> {
           dub: entry.dub,
           subtitle: 'EP ${entry.ep}',
           initialPosition: Duration(milliseconds: entry.resumePosition),
+          episodes: detail?.episodes,
         ),
       ),
     );
