@@ -82,6 +82,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Duration _lastSeenPosition = Duration.zero;
   DateTime _lastMovedAt = DateTime.now();
   int _stallTicks = 0;
+  bool _seenFirstProgress = false;
   String? _fatalMessage;
 
   // Last successful resolution, kept so native recoveries can retry the same
@@ -335,7 +336,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
       _nativeLabel = 'DoodStream';
     });
     try {
-      await _tunePlayer(player);
       var opened = false;
       await Future.any<void>([
         player
@@ -379,45 +379,56 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
   }
 
-  /// Applies mpv network and buffer tuning on top of media_kit's defaults
-  /// before media opens. media_kit hardcodes a 5s idle `network-timeout` that
-  /// kills dood CDN connections during slow bursts; backing it off is what
-  /// prevents the frozen-at-0:00 and "stall for ten seconds then resume"
-  /// symptoms on flaky connections.
-  Future<void> _tunePlayer(Player player) async {
-    const props = <String, String>{
-      'network-timeout': '0',
-      'stream-buffer-size': '8192',
-      'demuxer-readahead-secs': '30',
-      'tcp-keepalive': 'yes',
-    };
-    for (final entry in props.entries) {
-      try {
-        await player.setProperty(entry.key, entry.value);
-      } catch (error) {
-        debugPrint('[player] tune ${entry.key} failed: $error');
-      }
-    }
-  }
-
-  /// Polls the player every 3s. While the stream is supposed to be playing,
-  /// any 18s stretch without a position tick is treated as a stall, and after
-  /// two consecutive confirmed stalls the player is recovered. Watching the
-  /// live `playing` state means a user-initiated pause never triggers this.
+  /// Polls the player every 3s. Two failure modes are caught:
+  ///
+  /// 1. Hung load: [Media.open] returned ok but the stream never produces a
+  ///    non-zero position or duration (the frozen 00:00 case). mpv can sit in
+  ///    this state with `playing` false forever, so the old "skip when paused"
+  ///    guard would have let it spin indefinitely.
+  /// 2. Mid-playback stall: playing but no position tick for a long stretch.
+  ///
+  /// Watching the live `playing` state means a user-initiated pause never
+  /// triggers a false recovery after playback has genuinely started.
   void _startStallWatchdog(Player player) {
     _stopStallWatchdog();
     _lastMovedAt = DateTime.now();
     _stallTicks = 0;
+    _seenFirstProgress = false;
     _stallTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
       if (!mounted || !identical(_player, player)) {
         _stopStallWatchdog();
         return;
       }
+      late final Duration pos;
+      late final Duration dur;
+      late final bool playing;
       try {
-        if (player.state.completed || !player.state.playing) return;
+        pos = player.state.position;
+        dur = player.state.duration;
+        playing = player.state.playing;
+        if (player.state.completed) return;
       } catch (_) {
         return;
       }
+      if (!_seenFirstProgress) {
+        // Open "succeeded" but nothing has actually played yet. Give it a
+        // moment; if position/duration stay dead this is a hung load, so
+        // recover instead of leaving a frozen 00:00 forever.
+        if (pos > const Duration(milliseconds: 300) || dur > Duration.zero) {
+          _seenFirstProgress = true;
+          _touchWatchdog();
+          return;
+        }
+        final idleFor = DateTime.now().difference(_lastMovedAt);
+        if (idleFor < const Duration(seconds: 12)) return;
+        _stallTicks += 1;
+        if (_stallTicks >= 2) {
+          debugPrint('[player] watchdog: load hung at 00:00');
+          await _recoverNative('load hang at 00:00');
+        }
+        return;
+      }
+      if (!playing) return;
       final idleFor = DateTime.now().difference(_lastMovedAt);
       if (idleFor < const Duration(seconds: 18)) {
         _stallTicks = 0;
@@ -425,9 +436,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       }
       _stallTicks += 1;
       if (_stallTicks >= 2) {
-        debugPrint(
-          '[player] stall watchdog fired, frozen at $_lastSeenPosition',
-        );
+        debugPrint('[player] stall watchdog fired, frozen at $_lastSeenPosition');
         await _recoverNative('stall at $_lastSeenPosition');
       }
     });
