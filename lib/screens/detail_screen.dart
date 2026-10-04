@@ -8,6 +8,7 @@ import '../services/saved.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/anime_card.dart';
+import '../widgets/next_episode_countdown.dart';
 import 'player_screen.dart';
 
 class DetailScreen extends StatefulWidget {
@@ -380,6 +381,16 @@ class _DetailScreenState extends State<DetailScreen> {
           if (meta.isNotEmpty) ...[
             const SizedBox(height: 16),
             _metaList(context, meta),
+          ],
+          if (detail.broadcast != null &&
+              detail.broadcast!.isNotEmpty &&
+              detail.status != null &&
+              detail.status!.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            NextEpisodeCountdown(
+              broadcast: detail.broadcast!,
+              status: detail.status!,
+            ),
           ],
           if (hasEps) ...[
             const SizedBox(height: 20),

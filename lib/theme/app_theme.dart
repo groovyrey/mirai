@@ -1,31 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Mirai's palette is a "night broadcast" editorial: ink, paper, hairline
-/// dividers and one signal accent — volt lime. The display type runs wide and
-/// light on it.
+/// Mirai's palette is a "neon broadcast": cool ink, paper, hairline dividers
+/// and one signal accent — volt lime. The display type is tight condensed
+/// broadcast copy; body and UI run on a clean neutral sans. The whole system
+/// is deliberately a different register from Kumi's warm, rounded look.
 class AppColors {
   AppColors._();
 
-  static const _lInk = Color(0xFFF4F5F9); // paper background (light mode)
+  static const _lInk = Color(0xFFEDEFF4); // cool paper background
   static const _lSurface = Color(0xFFFFFFFF);
-  static const _lOnSurface = Color(0xFF17181D);
-  static const _lOnSurfaceVar = Color(0xFF5C6072);
-  static const _lOutline = Color(0xFFDCDEE6);
-  static const _lSurfaceVar = Color(0xFFECEDF2);
+  static const _lOnSurface = Color(0xFF101218);
+  static const _lOnSurfaceVar = Color(0xFF5E6478);
+  static const _lOutline = Color(0xFFD8DCE6);
+  static const _lSurfaceVar = Color(0xFFE4E7EF);
   static const _lError = Color(0xFFB3261E);
 
-  static const _dInk = Color(0xFF0A0B12); // near-black ink
-  static const _dSurface = Color(0xFF12141E);
-  static const _dOnSurface = Color(0xFFF2F3F7);
-  static const _dOnSurfaceVar = Color(0xFF9096A9);
-  static const _dOutline = Color(0xFF23262F);
-  static const _dSurfaceVar = Color(0xFF1B1D28);
+  static const _dInk = Color(0xFF05060A); // near-black with a blue undertone
+  static const _dSurface = Color(0xFF0D0F16);
+  static const _dOnSurface = Color(0xFFEDF0F8);
+  static const _dOnSurfaceVar = Color(0xFF8E96AC);
+  static const _dOutline = Color(0xFF222735);
+  static const _dSurfaceVar = Color(0xFF161A24);
   static const _dError = Color(0xFFF2B8B5);
 
   static const _volt = Color(0xFFC6F84E); // signal accent
   static const _voltOn = Color(0xFF0A0B12); // foreground on volt
-  static const _voltSoft = Color(0xFF232B1C); // subtle volt tint for dark
+  static const _voltSoft = Color(0xFF222B18); // subtle volt tint for dark
 
   static bool _isDark = false;
 
@@ -46,7 +47,7 @@ class AppColors {
   static Color get cardBorder => _isDark ? _dOutline : _lOutline;
 }
 
-/// Brash radius scale: crisp corners for cards, softer for fields and chips.
+/// Sharp radius scale: crisp corners for cards, softer for fields and chips.
 class AppRadius {
   AppRadius._();
 
@@ -79,8 +80,20 @@ ThemeData buildAppTheme() {
     ),
     scaffoldBackgroundColor: AppColors._lInk,
     dividerColor: AppColors._lOutline,
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {
+        TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.windows: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.linux: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.fuchsia: CupertinoPageTransitionsBuilder(),
+      },
+    ),
   );
-  return base.copyWith(textTheme: buildAppTextTheme(base.textTheme));
+  return _applyComponentThemes(
+    base.copyWith(textTheme: buildAppTextTheme(base.textTheme)),
+  );
 }
 
 ThemeData buildDarkTheme() {
@@ -106,61 +119,117 @@ ThemeData buildDarkTheme() {
     ),
     scaffoldBackgroundColor: AppColors._dInk,
     dividerColor: AppColors._dOutline,
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {
+        TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.windows: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.linux: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.fuchsia: CupertinoPageTransitionsBuilder(),
+      },
+    ),
   );
-  return base.copyWith(textTheme: buildAppTextTheme(base.textTheme));
+  return _applyComponentThemes(
+    base.copyWith(textTheme: buildAppTextTheme(base.textTheme)),
+  );
+}
+
+/// Global component styling so every screen shares the broadcast register:
+/// flat app bars, volt-filled buttons, and hairline dividers.
+ThemeData _applyComponentThemes(ThemeData theme) {
+  return theme.copyWith(
+    appBarTheme: AppBarTheme(
+      backgroundColor: AppColors.background,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      iconTheme: IconThemeData(color: AppColors.onSurfaceVariant),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        backgroundColor: AppColors.accent,
+        foregroundColor: AppColors.onAccent,
+        textStyle: const TextStyle(fontWeight: FontWeight.w700),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.field),
+        ),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: AppColors.accent,
+        textStyle: const TextStyle(fontWeight: FontWeight.w700),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppColors.accent,
+        side: BorderSide(color: AppColors.outline),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.field),
+        ),
+      ),
+    ),
+    dividerTheme: DividerThemeData(color: AppColors.outline),
+  );
 }
 
 TextTheme buildAppTextTheme(TextTheme base) {
-  final display = GoogleFonts.syneTextTheme(base);
+  final display = GoogleFonts.barlowCondensedTextTheme(base);
+  final body = GoogleFonts.interTextTheme(base);
   return display.copyWith(
     displayLarge: display.displayLarge?.copyWith(
-      fontSize: 64,
-      fontWeight: FontWeight.w700,
-      height: 0.95,
-      letterSpacing: -0.03,
+      fontSize: 66,
+      fontWeight: FontWeight.w800,
+      height: 0.9,
+      letterSpacing: -0.01,
     ),
     displayMedium: display.displayMedium?.copyWith(
-      fontSize: 44,
-      fontWeight: FontWeight.w700,
-      height: 1.0,
-      letterSpacing: -0.02,
+      fontSize: 48,
+      fontWeight: FontWeight.w800,
+      height: 0.95,
+      letterSpacing: -0.01,
     ),
     headlineMedium: display.headlineMedium?.copyWith(
-      fontSize: 30,
+      fontSize: 34,
       fontWeight: FontWeight.w700,
-      height: 1.05,
-      letterSpacing: -0.02,
+      height: 1.0,
+      letterSpacing: -0.01,
     ),
     headlineSmall: display.headlineSmall?.copyWith(
-      fontSize: 24,
+      fontSize: 26,
       fontWeight: FontWeight.w700,
-      height: 1.15,
-      letterSpacing: -0.01,
+      height: 1.05,
     ),
     titleLarge: display.titleLarge?.copyWith(
-      fontSize: 20,
+      fontSize: 22,
       fontWeight: FontWeight.w700,
-      height: 1.2,
-      letterSpacing: -0.01,
+      height: 1.1,
+      letterSpacing: -0.005,
     ),
     titleMedium: display.titleMedium?.copyWith(
-      fontSize: 16,
+      fontSize: 15,
       fontWeight: FontWeight.w600,
-      height: 1.3,
+      height: 1.25,
     ),
-    bodyLarge: base.bodyLarge?.copyWith(fontSize: 15, height: 1.6),
-    bodyMedium: base.bodyMedium?.copyWith(
+    bodyLarge: body.bodyLarge?.copyWith(fontSize: 15, height: 1.6),
+    bodyMedium: body.bodyMedium?.copyWith(
       fontSize: 13,
       height: 1.55,
       color: AppColors.onSurfaceVariant,
     ),
-    labelSmall: base.labelSmall?.copyWith(
+    bodySmall: body.bodySmall?.copyWith(fontSize: 12, height: 1.4),
+    titleSmall: body.titleSmall?.copyWith(
+      fontSize: 13,
+      fontWeight: FontWeight.w600,
+    ),
+    labelSmall: body.labelSmall?.copyWith(
       fontSize: 11,
       fontWeight: FontWeight.w700,
       letterSpacing: 2.2,
       color: AppColors.onSurfaceVariant,
     ),
-    labelMedium: base.labelMedium?.copyWith(
+    labelMedium: body.labelMedium?.copyWith(
       fontSize: 12,
       fontWeight: FontWeight.w600,
       letterSpacing: 0.4,

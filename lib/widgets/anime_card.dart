@@ -111,6 +111,15 @@ class SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
+        Container(
+          width: 4,
+          height: 12,
+          decoration: BoxDecoration(
+            color: context.appAccent,
+            borderRadius: BorderRadius.circular(1),
+          ),
+        ),
+        const SizedBox(width: 8),
         Text(
           text,
           style: context.appTextTheme.labelSmall?.copyWith(
