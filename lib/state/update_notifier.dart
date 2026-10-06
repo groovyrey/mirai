@@ -33,6 +33,14 @@ class UpdateNotifier extends ChangeNotifier {
   bool get hasUpdate => _latest != null;
   bool get checked => _checked;
 
+  /// Drops any announced update, used when the user opts out of checking.
+  void clear() {
+    if (_latest == null && !_checked) return;
+    _latest = null;
+    _checked = false;
+    notifyListeners();
+  }
+
   /// True when a newer build exists for the given channel.
   bool hasUpdateOn(bool includePrerelease) {
     final release = _latest;

@@ -171,7 +171,7 @@ class AboutScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: context.appSurface,
         borderRadius: BorderRadius.circular(AppRadius.card),
-        border: Border.all(color: AppColors.cardBorder),
+        border: Border.all(color: context.appOutline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -183,7 +183,7 @@ class AboutScreen extends StatelessWidget {
               color: context.appAccentSoft,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(feature.$1, size: 20, color: context.appAccent),
+            child: Icon(feature.$1, size: 20, color: context.appOnAccentSoft),
           ),
           const SizedBox(height: 12),
           Text(
@@ -212,12 +212,12 @@ class AboutScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: context.appSurface,
         borderRadius: BorderRadius.circular(AppRadius.card),
-        border: Border.all(color: AppColors.cardBorder),
+        border: Border.all(color: context.appOutline),
       ),
       child: Column(
         children: [
           for (var i = 0; i < _sources.length; i++) ...[
-            if (i > 0) Divider(height: 1, color: AppColors.cardBorder),
+            if (i > 0) Divider(height: 1, color: context.appOutline),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
@@ -232,7 +232,7 @@ class AboutScreen extends StatelessWidget {
                     child: Icon(
                       _sources[i].$1,
                       size: 18,
-                      color: context.appAccent,
+                      color: context.appOnAccentSoft,
                     ),
                   ),
                   const SizedBox(width: 14),

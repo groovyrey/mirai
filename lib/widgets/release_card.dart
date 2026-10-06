@@ -68,7 +68,7 @@ class ReleaseCard extends StatelessWidget {
   }
 
   Widget _header(BuildContext context) {
-    final color = isNewest ? context.appOnAccent : context.appOnSurface;
+    final color = isNewest ? context.appOnAccentSoft : context.appOnSurface;
     return Row(
       children: [
         Text(
@@ -118,7 +118,7 @@ class ReleaseAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = primary ? context.appOnAccent : context.appOnSurface;
+    final color = primary ? context.appOnAccentSoft : context.appOnSurface;
     return GestureDetector(
       onTap: onTap,
       child: Text(

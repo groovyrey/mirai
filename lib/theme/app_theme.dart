@@ -44,6 +44,13 @@ class AppColors {
   static Color get accentSoft => _isDark ? _voltSoft : _volt;
   static Color get onAccent => _voltOn;
 
+  /// Foreground for anything sitting on top of [accentSoft].
+  ///
+  /// [onAccent] only pairs with the solid [accent]. Because [accentSoft]
+  /// flips to a dark tint in dark mode, its readable partner has to flip too
+  /// (near-black on volt when light, near-white on the dark tint when dark).
+  static Color get onAccentSoft => _isDark ? _dOnSurface : _voltOn;
+
   static Color get cardBorder => _isDark ? _dOutline : _lOutline;
 }
 
@@ -246,6 +253,7 @@ extension AppThemeX on BuildContext {
   Color get appAccent => AppColors.accent;
   Color get appAccentSoft => AppColors.accentSoft;
   Color get appOnAccent => AppColors.onAccent;
+  Color get appOnAccentSoft => AppColors.onAccentSoft;
   Color get appOutline => AppColors.outline;
   TextTheme get appTextTheme => Theme.of(this).textTheme;
 }

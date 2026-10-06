@@ -208,6 +208,107 @@ void main() {
       expect(latest!.version, '2.0.0-beta.1');
     });
 
+    test('recovers the rolling beta version from its asset name', () async {
+      // The workflow publishes every beta under the fixed tag `beta`, so the
+      // tag itself carries no version and published_at never advances.
+      final checker = VersionChecker(
+        client: releasesResponse([
+          {
+            'tag_name': 'beta',
+            'prerelease': true,
+            'draft': false,
+            'html_url': 'https://example.com/beta',
+            'published_at': '2026-10-02T01:45:00Z',
+            'assets': [
+              {
+                'name': 'Mirai-1.0.0-beta.apk',
+                'browser_download_url': 'https://example.com/old.apk',
+                'size': 1,
+                'download_count': 0,
+                'updated_at': '2026-10-04T02:50:18Z',
+              },
+              {
+                'name': 'Mirai-1.3.0-beta.apk',
+                'browser_download_url': 'https://example.com/new.apk',
+                'size': 1,
+                'download_count': 0,
+                'updated_at': '2026-10-06T03:14:15Z',
+              },
+            ],
+          },
+        ]),
+      );
+      final beta = (await checker.latest(includePrerelease: true))!;
+      expect(beta.version, '1.3.0-beta');
+      // Recency must follow the newest upload, not the release creation date.
+      expect(
+        beta.publishedAt!.isAfter(DateTime.utc(2026, 10, 5)),
+        isTrue,
+        reason: 'rolling beta should sort by asset upload, not tag creation',
+      );
+    });
+
+    test('offers the rolling beta to someone on the previous stable', () async {
+      final checker = VersionChecker(
+        client: releasesResponse([
+          {
+            'tag_name': 'v1.2.0',
+            'prerelease': false,
+            'draft': false,
+            'html_url': 'https://example.com/stable',
+            'published_at': '2026-10-06T03:23:27Z',
+            'assets': [
+              {
+                'name': 'Mirai-1.2.0-arm64.apk',
+                'browser_download_url': 'https://example.com/stable.apk',
+                'updated_at': '2026-10-06T03:23:00Z',
+              },
+            ],
+          },
+          {
+            'tag_name': 'beta',
+            'prerelease': true,
+            'draft': false,
+            'html_url': 'https://example.com/beta',
+            'published_at': '2026-10-02T01:45:00Z',
+            'assets': [
+              {
+                'name': 'Mirai-1.3.0-beta.apk',
+                'browser_download_url': 'https://example.com/beta.apk',
+                'updated_at': '2026-10-06T03:14:15Z',
+              },
+            ],
+          },
+        ]),
+      );
+      expect((await checker.latest())!.version, '1.2.0');
+      expect((await checker.latest(includePrerelease: true))!.version,
+          '1.3.0-beta');
+      expect(SemVer('1.3.0-beta') > SemVer('1.2.0'), isTrue);
+    });
+
+    test('a rolling beta never outranks the stable it precedes', () async {
+      // Someone already on 1.3.0 must not be told to install 1.3.0-beta.
+      expect(SemVer('1.3.0-beta') > SemVer('1.3.0+2'), isFalse);
+      expect(SemVer('1.2.0-beta') > SemVer('1.2.0'), isFalse);
+    });
+
+    test('drops a release whose version cannot be determined', () async {
+      final checker = VersionChecker(
+        client: releasesResponse([
+          {
+            'tag_name': 'nightly',
+            'prerelease': true,
+            'draft': false,
+            'html_url': 'https://example.com/nightly',
+            'published_at': '2026-10-06T00:00:00Z',
+            'assets': <Map<String, dynamic>>[],
+          },
+        ]),
+      );
+      expect(await checker.latest(includePrerelease: true), isNull);
+    });
+
     test('returns the newest first when several releases exist', () async {
       final checker = VersionChecker(
         client: releasesResponse([

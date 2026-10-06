@@ -44,6 +44,19 @@ class SettingsScreen extends StatelessWidget {
           if (pending != null) _banner(context, pending),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+            child: SectionLabel(text: 'APPEARANCE'),
+          ),
+          _ListTile(
+            title: 'Theme',
+            subtitle: switch (state.themeMode) {
+              ThemeMode.light => 'Light',
+              ThemeMode.dark => 'Dark',
+              ThemeMode.system => 'Match system',
+            },
+            onTap: state.cycleTheme,
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
             child: SectionLabel(text: 'PLAYBACK'),
           ),
           _SwitchTile(
@@ -77,6 +90,25 @@ class SettingsScreen extends StatelessWidget {
             title: 'Audio',
             subtitle: state.audioMode == AudioMode.dub ? 'Dub first' : 'Sub first',
             onTap: () => _pickAudio(context, state),
+          ),
+          _SwitchTile(
+            title: 'Check for updates',
+            subtitle: 'Look for new releases on startup',
+            value: state.autoCheckUpdates,
+            onChanged: (value) async {
+              await state.setAutoCheckUpdates(value);
+              if (!context.mounted) return;
+              if (!value) {
+                context.read<UpdateNotifier>().clear();
+                return;
+              }
+              await context.read<UpdateNotifier>().check(
+                    includePrerelease:
+                        state.updateChannel == UpdateChannel.beta,
+                    enabled: true,
+                    force: true,
+                  );
+            },
           ),
           _Select(
             title: 'Update channel',
@@ -145,7 +177,7 @@ class SettingsScreen extends StatelessWidget {
             Text(
               'UPDATE AVAILABLE',
               style: context.appTextTheme.labelSmall?.copyWith(
-                color: context.appOnAccent,
+                color: context.appOnAccentSoft,
                 letterSpacing: 2,
               ),
             ),
@@ -153,13 +185,13 @@ class SettingsScreen extends StatelessWidget {
             Text(
               'v${update.version} is out.',
               style: context.appTextTheme.bodyLarge?.copyWith(
-                color: context.appOnAccent,
+                color: context.appOnAccentSoft,
               ),
             ),
             const SizedBox(height: 12),
             TextButton(
               style: TextButton.styleFrom(
-                foregroundColor: context.appOnAccent,
+                foregroundColor: context.appOnAccentSoft,
                 padding: EdgeInsets.zero,
               ),
               onPressed: () => Navigator.of(context).push(
