@@ -375,7 +375,9 @@ void main() {
 
     test('a disabled check leaves the notifier empty', () async {
       final notifier = UpdateNotifier(
-        checker: MockClient((_) async => fail('network should not be reached')),
+        checker: VersionChecker(
+          client: MockClient((_) async => fail('network should not be reached')),
+        ),
       );
       await notifier.check(includePrerelease: false, enabled: false);
       expect(notifier.hasUpdate, isFalse);

@@ -49,13 +49,13 @@ class ReleaseCard extends StatelessWidget {
             spacing: 16,
             runSpacing: 8,
             children: [
-              _Action(
+              ReleaseAction(
                 label: asset == null ? 'RELEASE PAGE' : 'DOWNLOAD',
                 onTap: () => onOpen(asset?.url ?? release.url),
                 primary: isNewest,
               ),
               if (release.assets.length > 1)
-                _Action(
+                ReleaseAction(
                   label: 'ALL FILES',
                   onTap: () => onOpen(release.url),
                   primary: false,

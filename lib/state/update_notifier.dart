@@ -11,7 +11,7 @@ import '../utils/semver.dart';
 /// without every screen running its own network check.
 class UpdateNotifier extends ChangeNotifier {
   UpdateNotifier({VersionChecker? checker, String? installedVersion})
-      : _checker = checker,
+      : _checker = checker ?? VersionChecker(),
         _installedOverride = installedVersion;
 
   final VersionChecker _checker;

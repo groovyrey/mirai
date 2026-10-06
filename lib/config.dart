@@ -23,7 +23,7 @@ class AppConfig {
   static String get aniwatchBase {
     final over = aniwavesBaseOverride.trim();
     if (over.isEmpty) return '$workerRoot/api/aniwatch';
-    return over.replaceFirst(RegExp(r'/api/aniwaves$'), '') + '/api/aniwatch';
+    return '${over.replaceFirst(RegExp(r'/api/aniwaves$'), '')}/api/aniwatch';
   }
 }
 

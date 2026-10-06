@@ -18,6 +18,10 @@ class NotesBlock {
 /// else falls through as paragraph text so a new release body never renders
 /// blank.
 class ReleaseNotesParser {
+  /// `- [x] Fixed` is a bullet whose label is just `Fixed`.
+  static String _stripCheckbox(String text) =>
+      text.replaceFirst(RegExp(r'^\[( |x|X)\]\s+'), '').trim();
+
   static List<NotesBlock> parse(String body) {
     final blocks = <NotesBlock>[];
     final paragraph = <String>[];
@@ -167,10 +171,6 @@ class ReleaseNotesView extends StatelessWidget {
 
     return Text.rich(TextSpan(style: base, children: spans));
   }
-
-  /// `- [x] Fixed` is a bullet whose label is just `Fixed`.
-  static String _stripCheckbox(String text) =>
-      text.replaceFirst(RegExp(r'^\[( |x|X)\]\s+'), '').trim();
 
   static String _stripInline(String text) =>
       text.replaceAllMapped(RegExp(r'`([^`]+)`|\*\*([^*]+)\*\*'), (m) {

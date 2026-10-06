@@ -4,10 +4,10 @@
 /// `1.2.0-beta.1`, `1.2.0-rc.3+17`. Returns 0 when a component is missing so
 /// partial tags like `1.2` still order correctly against `1.2.0`.
 class SemVer implements Comparable<SemVer> {
-  SemVer(this.raw) : parsed = _parse(raw);
+  SemVer(this.raw) : _parsed = _parse(raw);
 
   final String raw;
-  final _SemVerParts parsed;
+  final _SemVerParts _parsed;
 
   static final _pattern = RegExp(
     r'^v?(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:-([0-9A-Za-z.-]+))?(?:\+([0-9A-Za-z.-]+))?$',
@@ -24,11 +24,11 @@ class SemVer implements Comparable<SemVer> {
     );
   }
 
-  int get major => parsed.major;
-  int get minor => parsed.minor;
-  int get patch => parsed.patch;
-  String get preRelease => parsed.preRelease;
-  bool get isPreRelease => parsed.preRelease.isNotEmpty;
+  int get major => _parsed.major;
+  int get minor => _parsed.minor;
+  int get patch => _parsed.patch;
+  String get preRelease => _parsed.preRelease;
+  bool get isPreRelease => _parsed.preRelease.isNotEmpty;
 
   /// Strips the leading `v` and any build metadata for display.
   String get label {
@@ -95,7 +95,7 @@ class _SemVerParts {
 List<T> releasesNewerThan<T>(
   List<T> releases,
   String installed,
-  T Function(T) versionOf,
+  String Function(T) versionOf,
 ) {
   final base = SemVer(installed);
   final newer = releases.where((r) => SemVer(versionOf(r)) > base).toList()
