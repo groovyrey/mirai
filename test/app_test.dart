@@ -84,19 +84,26 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(SettingsScreen), findsOneWidget);
-    expect(find.text('APPEARANCE'), findsOneWidget);
-    expect(find.text('Theme'), findsOneWidget);
-    expect(find.text('PLAYBACK'), findsOneWidget);
-    expect(find.text('Check for updates'), findsOneWidget);
 
-    // The settings column is a lazy ListView, so lower sections only build
-    // once they are scrolled into view.
-    await tester.dragUntilVisible(
-      find.text('ACCOUNT & DATA'),
-      find.byType(ListView),
-      const Offset(0, -200),
-    );
-    expect(find.text('ACCOUNT & DATA'), findsOneWidget);
+    // The settings column is a lazy ListView taller than the test surface, so
+    // each section has to be scrolled into view before it can be asserted.
+    Future<void> expectVisible(String label) async {
+      final finder = find.text(label);
+      await tester.dragUntilVisible(
+        finder,
+        find.byType(ListView),
+        const Offset(0, -200),
+      );
+      expect(finder, findsOneWidget, reason: 'missing section "$label"');
+    }
+
+    await expectVisible('APPEARANCE');
+    await expectVisible('Theme');
+    await expectVisible('PLAYBACK');
+    await expectVisible('Keep screen awake');
+    await expectVisible('Check for updates');
+    await expectVisible('Update channel');
+    await expectVisible('ACCOUNT & DATA');
 
     // Let the delayed auto-update check and its network call finish so no
     // timers are left pending.
