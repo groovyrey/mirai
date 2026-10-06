@@ -16,11 +16,18 @@ import '../widgets/release_card.dart';
 /// but it also renders the up-to-date state so it stays usable as a manual
 /// release history.
 class UpdateScreen extends StatefulWidget {
-  const UpdateScreen({super.key, required this.checker});
+  const UpdateScreen({
+    super.key,
+    required this.checker,
+    this.installedVersion,
+  });
 
   /// The screen is pushed as its own route, so the caller passes the shared
   /// checker in rather than reading it from a provider below the Navigator.
   final VersionChecker checker;
+
+  /// Pins the installed build; production reads PackageInfo.
+  final String? installedVersion;
 
   static Route<void> route(VersionChecker checker) =>
       MaterialPageRoute(builder: (_) => UpdateScreen(checker: checker));
@@ -68,6 +75,8 @@ class _UpdateScreenState extends State<UpdateScreen> {
   }
 
   Future<String> _installedVersion() async {
+    final pinned = widget.installedVersion;
+    if (pinned != null) return pinned;
     try {
       final info = await PackageInfo.fromPlatform();
       return info.version;

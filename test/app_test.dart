@@ -126,7 +126,10 @@ void main() {
       ChangeNotifierProvider(
         create: (_) => AppState()..init(),
         child: MaterialApp(
-          home: UpdateScreen(checker: checker),
+          home: UpdateScreen(
+            checker: checker,
+            installedVersion: '1.0.0',
+          ),
         ),
       ),
     );
@@ -135,9 +138,6 @@ void main() {
     expect(find.text('Update available'), findsOneWidget);
     expect(find.text('AniWatch source'), findsOneWidget);
     expect(find.text('ALL RELEASES'), findsOneWidget);
-
-    // Drain the PackageInfo platform call.
-    await tester.pump(const Duration(milliseconds: 300));
   });
 
   group('version checker', () {
