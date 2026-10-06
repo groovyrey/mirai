@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
 import '../services/saved.dart';
@@ -119,6 +120,17 @@ class _Header extends StatelessWidget {
 
   final ValueChanged<int> onTab;
 
+  /// Reads the version from the installed package so the header can never
+  /// drift from the build the user is actually running.
+  Future<String> _version() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      return info.version;
+    } catch (_) {
+      return '';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
@@ -147,12 +159,19 @@ class _Header extends StatelessWidget {
                   const Spacer(),
                   GestureDetector(
                     onTap: () => onTab(_AppShellState._settingsIndex),
-                    child: Text(
-                      'v1.0.0',
-                      style: context.appTextTheme.labelSmall?.copyWith(
-                        fontSize: 10,
-                        letterSpacing: 1.5,
-                      ),
+                    child: FutureBuilder<String>(
+                      future: _version(),
+                      builder: (context, snap) {
+                        final version = snap.data ?? '';
+                        if (version.isEmpty) return const SizedBox.shrink();
+                        return Text(
+                          'v$version',
+                          style: context.appTextTheme.labelSmall?.copyWith(
+                            fontSize: 10,
+                            letterSpacing: 1.5,
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ],
