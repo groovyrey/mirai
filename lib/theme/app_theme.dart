@@ -28,6 +28,11 @@ class AppColors {
   static const _voltOn = Color(0xFF0A0B12); // foreground on volt
   static const _voltSoft = Color(0xFF222B18); // subtle volt tint for dark
 
+  /// Volt pulled down far enough to sit on paper. Full `volt` measures 1.08:1
+  /// against `background` in light mode, so as a foreground it would vanish.
+  static const _voltDeep = Color(0xFF5A7000);
+  static const _voltDeepOn = Color(0xFFFFFFFF);
+
   static bool _isDark = false;
 
   static void setThemeBrightness(Brightness b) =>
@@ -40,9 +45,9 @@ class AppColors {
   static Color get outline => _isDark ? _dOutline : _lOutline;
   static Color get surfaceVariant => _isDark ? _dSurfaceVar : _lSurfaceVar;
   static Color get error => _isDark ? _dError : _lError;
-  static Color get accent => _volt;
+  static Color get accent => _isDark ? _volt : _voltDeep;
   static Color get accentSoft => _isDark ? _voltSoft : _volt;
-  static Color get onAccent => _voltOn;
+  static Color get onAccent => _isDark ? _voltOn : _voltDeepOn;
 
   /// Foreground for anything sitting on top of [accentSoft].
   ///
@@ -72,11 +77,11 @@ ThemeData buildAppTheme() {
       primary: AppColors.accent,
       onPrimary: AppColors.onAccent,
       primaryContainer: AppColors.accentSoft,
-      onPrimaryContainer: AppColors.onAccent,
+      onPrimaryContainer: AppColors.onAccentSoft,
       secondary: AppColors.accent,
       onSecondary: AppColors.onAccent,
       secondaryContainer: AppColors.accentSoft,
-      onSecondaryContainer: AppColors.onAccent,
+      onSecondaryContainer: AppColors.onAccentSoft,
       surface: AppColors._lSurface,
       surfaceContainerHighest: AppColors._lSurfaceVar,
       error: AppColors._lError,
@@ -111,11 +116,11 @@ ThemeData buildDarkTheme() {
       primary: AppColors.accent,
       onPrimary: AppColors.onAccent,
       primaryContainer: AppColors.accentSoft,
-      onPrimaryContainer: AppColors.onAccent,
+      onPrimaryContainer: AppColors.onAccentSoft,
       secondary: AppColors.accent,
       onSecondary: AppColors.onAccent,
       secondaryContainer: AppColors.accentSoft,
-      onSecondaryContainer: AppColors.onAccent,
+      onSecondaryContainer: AppColors.onAccentSoft,
       surface: AppColors._dSurface,
       surfaceContainerHighest: AppColors._dSurfaceVar,
       error: AppColors._dError,
