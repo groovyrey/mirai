@@ -84,7 +84,18 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(SettingsScreen), findsOneWidget);
+    expect(find.text('APPEARANCE'), findsOneWidget);
+    expect(find.text('Theme'), findsOneWidget);
     expect(find.text('PLAYBACK'), findsOneWidget);
+    expect(find.text('Check for updates'), findsOneWidget);
+
+    // The settings column is a lazy ListView, so lower sections only build
+    // once they are scrolled into view.
+    await tester.dragUntilVisible(
+      find.text('ACCOUNT & DATA'),
+      find.byType(ListView),
+      const Offset(0, -200),
+    );
     expect(find.text('ACCOUNT & DATA'), findsOneWidget);
 
     // Let the delayed auto-update check and its network call finish so no
