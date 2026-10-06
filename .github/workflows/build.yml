@@ -94,8 +94,8 @@ jobs:
           name: "Mirai ${{ steps.version.outputs.version }}"
           tag_name: ${{ steps.version.outputs.tag }}
           body: |
-            First actual Mirai release. arm64 APK only (`--split-per-abi`),
-            release-signed so it installs over any previous Mirai build.
+            arm64 APK only (`--split-per-abi`), release-signed so it installs
+            over any previous Mirai build.
           files: build/app/outputs/flutter-apk/Mirai-${{ steps.version.outputs.version_clean }}-arm64.apk
           generate_release_notes: true
 
