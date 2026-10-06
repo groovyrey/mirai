@@ -13,6 +13,7 @@ import 'package:mirai/screens/settings_screen.dart';
 import 'package:mirai/screens/shell.dart';
 import 'package:mirai/screens/update_screen.dart';
 import 'package:mirai/services/saved.dart';
+import 'package:mirai/services/resolver_service.dart';
 import 'package:mirai/services/version_checker.dart';
 import 'package:mirai/services/watch_history.dart';
 import 'package:mirai/state/app_state.dart';
@@ -381,6 +382,33 @@ void main() {
       );
       await notifier.check(includePrerelease: false, enabled: false);
       expect(notifier.hasUpdate, isFalse);
+    });
+  });
+
+  group('resolved source', () {
+    test('parses subtitle tracks with labels', () {
+      final source = ResolvedSource.tryFromJson({
+        'ok': true,
+        'playUrl': 'https://example.com/master.m3u8',
+        'provider': 'zokoanime',
+        'subtitles': [
+          {'url': 'https://example.com/en.vtt', 'label': 'English'},
+          {'url': '', 'label': 'Empty'},
+        ],
+      });
+      expect(source, isNotNull);
+      expect(source!.subtitles, hasLength(1));
+      expect(source.subtitles!.first.label, 'English');
+      expect(source.embedMode, isFalse);
+    });
+
+    test('a source with no subtitles leaves the list null', () {
+      final source = ResolvedSource.tryFromJson({
+        'ok': true,
+        'playUrl': 'https://example.com/video.mp4',
+        'provider': 'doodstream',
+      });
+      expect(source!.subtitles, isNull);
     });
   });
 }

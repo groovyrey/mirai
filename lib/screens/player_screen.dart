@@ -489,6 +489,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       _lastPosition = Duration.zero;
       _positionSub?.cancel();
       _positionSub = player.stream.position.listen(_onNativePosition);
+      unawaited(_attachSubtitles(player, source));
       _completedSub?.cancel();
       _completedSub = player.stream.completed.listen((_) {
         unawaited(WatchHistory.instance.clearEntry(widget.item.id, widget.ep));
@@ -504,6 +505,25 @@ class _PlayerScreenState extends State<PlayerScreen> {
       unawaited(errorSub.cancel());
       unawaited(player.dispose());
       return false;
+    }
+  }
+
+  /// Loads the resolved subtitle tracks into media_kit and turns the first one
+  /// on.
+  ///
+  /// The worker only returns tracks for sources that publish them (aniwatch's
+  /// ZokoAnime server does; aniwaves hands back an MP4 with none), so this is
+  /// a no-op for most sources. Failures are swallowed: a missing or rejected
+  /// track must never take playback down.
+  Future<void> _attachSubtitles(Player player, ResolvedSource source) async {
+    final tracks = source.subtitles;
+    if (tracks == null || tracks.isEmpty) return;
+    try {
+      await player.setSubtitleTrack(
+        SubtitleTrack.uri(tracks.first.url, title: tracks.first.label),
+      );
+    } catch (error) {
+      debugPrint('[player] subtitle track failed: $error');
     }
   }
 
