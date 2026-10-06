@@ -78,13 +78,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
   VideoController? _videoController;
   StreamSubscription<String>? _errorSub;
   WebViewController? _web;
-  String _nativeLabel = '';
   String _fallbackNotice = '';
   bool _nativeFailed = false;
   bool _controlsVisible = true;
   Timer? _hideTimer;
   double? _dragSeconds;
-  String? _embedProvider;
   int _nativeAttempts = 0;
 
   /// Which catalog the current playback came from. Drives the source sheet and
@@ -305,7 +303,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
         _startEmbedFallback(
           'Direct playback wasn\'t possible for this title, so Mirai opened the embed player instead.',
           url: _lastEmbedUrl,
-          provider: source.provider,
         );
         return;
       }
@@ -318,14 +315,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
       _startEmbedFallback(
         'The direct stream couldn\'t be reached, so Mirai opened the embed player instead.',
         url: _lastEmbedUrl,
-        provider: source.provider,
       );
     } catch (_) {
       if (!mounted) return;
       _startEmbedFallback(
         'The direct stream couldn\'t be reached, so Mirai opened the embed player instead.',
         url: _lastEmbedUrl,
-        provider: _lastSource?.provider,
       );
     }
   }
@@ -352,7 +347,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
       _startEmbedFallback(
         'Aniwatch\'s stream couldn\'t be reached, so Mirai opened the embed player instead.',
         url: _lastEmbedUrl,
-        provider: source.provider,
       );
     } on ResolveFailure catch (error) {
       if (!mounted) return;
@@ -424,14 +418,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   /// Loads the embed player. [url] is the embed page supplied by the worker
   /// (echovideo / byse / dood wrapper) or the site watch page as a last resort.
-  void _fallbackToEmbed({required String url, String? provider, String? notice}) {
+  void _fallbackToEmbed({required String url, String? notice}) {
     if (!mounted) return;
     _stopStallWatchdog();
     final controller = _buildController(url);
     setState(() {
       _web = controller;
       _mode = _PlayerMode.embed;
-      _embedProvider = provider;
       _nativeFailed = notice != null;
       _fallbackNotice = notice ?? '';
     });
@@ -461,7 +454,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _errorSub = errorSub;
     setState(() {
       _mode = _PlayerMode.loading;
-      _nativeLabel = ResolverService.providerLabels[source.provider] ?? source.provider;
     });
     try {
       var opened = false;
@@ -646,19 +638,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _startEmbedFallback(
       'The direct stream kept dropping, so Mirai opened the embed player instead.',
       url: _lastEmbedUrl,
-      provider: _lastSource?.provider,
     );
   }
 
   /// Opens the real embed player page. [url] is the embed page the worker
   /// supplied (echovideo / byse / dood wrapper); when it is absent the site
   /// watch page is the very last resort.
-  void _startEmbedFallback(String? notice, {String? url, String? provider}) {
+  void _startEmbedFallback(String? notice, {String? url}) {
     if (!mounted) return;
     _stopStallWatchdog();
     try {
       final target = url ?? _lastEmbedUrl ?? _embedWrapUrl();
-      _fallbackToEmbed(url: target, provider: provider, notice: notice);
+      _fallbackToEmbed(url: target, notice: notice);
     } catch (error) {
       debugPrint('[player] embed fallback failed: $error');
       setState(() {
@@ -729,7 +720,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
           : source.playUrl;
       if (source.embedMode) {
         if (await _tryPlayDoodClient(source)) return;
-        _startEmbedFallback(null, url: _lastEmbedUrl, provider: source.provider);
+        _startEmbedFallback(null, url: _lastEmbedUrl);
       } else {
         // Shouldn't happen with embed:true, but never surprise the user.
         if (await _playNative(source)) return;
@@ -1323,11 +1314,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   Widget _topBar(BuildContext context) {
-    final subtitle = _mode == _PlayerMode.native
-        ? 'Playing via $_nativeLabel'
-        : _mode == _PlayerMode.embed
-            ? 'Embedded player${_embedProvider != null ? ' · $_embedProvider' : ''}'
-            : null;
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -1361,15 +1347,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                if (subtitle != null)
-                  Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: context.appTextTheme.bodySmall?.copyWith(
-                      color: Colors.white70,
-                    ),
-                  ),
               ],
             ),
           ),
