@@ -1,8 +1,12 @@
 class AppConfig {
   AppConfig._();
 
+  /// Root of the resolver worker (worker8652). Every endpoint group hangs off
+  /// this host, so a settings override only needs to name the root once.
+  static const workerRoot = 'https://worker8652.appleflux.workers.dev';
+
   /// The aniwaves catalog + resolver worker (worker8652).
-  static const aniwavesBase = 'https://worker8652.appleflux.workers.dev/api/aniwaves';
+  static const aniwavesBase = '$workerRoot/api/aniwaves';
 
   /// Optional user-supplied base set from Settings; when non-empty it shadows
   /// [aniwavesBase]. Kept in [AppState], mutated before API calls.
@@ -11,6 +15,15 @@ class AppConfig {
   static String get resolverBase {
     final over = aniwavesBaseOverride.trim();
     return over.isNotEmpty ? over : aniwavesBase;
+  }
+
+  /// aniwatch.lu source resolver. Lives on the same worker as a sibling group,
+  /// so the settings override (which names the aniwaves base) maps across by
+  /// swapping the trailing group instead of needing its own field.
+  static String get aniwatchBase {
+    final over = aniwavesBaseOverride.trim();
+    if (over.isEmpty) return '$workerRoot/api/aniwatch';
+    return over.replaceFirst(RegExp(r'/api/aniwaves$'), '') + '/api/aniwatch';
   }
 }
 

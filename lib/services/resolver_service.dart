@@ -24,12 +24,15 @@ class ResolvedSource {
     this.note,
     this.httpHeaders,
     this.embedUrl,
+    this.subtitles,
+    this.animeTitle,
   });
 
   final String playUrl;
 
-  /// 'doodstream' for direct MP4; 'echovideo' | 'byse' | 'dood' | 'unknown'
-  /// when the worker could only hand back an embed page.
+  /// Provider slug from the worker. Direct sources are playable as-is:
+  /// 'doodstream' (MP4) and the aniwatch native sources 'zokoanime' / 'megaplay'
+  /// (HLS). Anything else is only usable as an embed page.
   final String provider;
   final String quality;
   final bool embedMode;
@@ -44,16 +47,23 @@ class ResolvedSource {
   /// playback where the upstream gates on a mobile UA.
   final Map<String, String>? httpHeaders;
 
+  /// Sidecar subtitle tracks (VTT) the worker resolved alongside the stream.
+  final List<ResolvedSubtitle>? subtitles;
+
+  /// The title aniwatch.lu actually matched, when the mapping differs from the
+  /// requested title (the mirror carries franchises under separate entries).
+  final String? animeTitle;
+
+  static const _directProviders = {'doodstream', 'zokoanime', 'megaplay'};
+
   static ResolvedSource? tryFromJson(Object? data) {
     if (data is! Map<String, dynamic>) return null;
     if (data['ok'] != true) return null;
     final playUrl = data['playUrl'];
     if (playUrl is! String || playUrl.isEmpty) return null;
     final provider = (data['provider'] as String? ?? 'unknown').toLowerCase();
-    final embedMode = switch (provider) {
-      'doodstream' => false,
-      _ => true,
-    };
+    final embedMode = !_directProviders.contains(provider);
+    final subs = data['subtitles'];
     return ResolvedSource(
       playUrl: playUrl,
       provider: provider,
@@ -61,8 +71,25 @@ class ResolvedSource {
       embedMode: embedMode,
       note: data['note'] as String?,
       embedUrl: data['embedUrl'] as String?,
+      subtitles: subs is List
+          ? subs
+              .whereType<Map<String, dynamic>>()
+              .map((s) => ResolvedSubtitle(
+                    url: s['url'] as String? ?? '',
+                    label: s['label'] as String? ?? 'Subtitles',
+                  ))
+              .where((s) => s.url.isNotEmpty)
+              .toList()
+          : null,
+      animeTitle: data['animeTitle'] as String?,
     );
   }
+}
+
+class ResolvedSubtitle {
+  const ResolvedSubtitle({required this.url, required this.label});
+  final String url;
+  final String label;
 }
 
 /// Resolves a playable URL for an aniwaves episode through worker8652.
@@ -82,6 +109,13 @@ class ResolverService {
   };
 
   static const serverOrder = [2];
+
+  /// Direct-stream provider slug -> the label shown in the player UI.
+  static const providerLabels = <String, String>{
+    'doodstream': 'DoodStream',
+    'zokoanime': 'ZokoAnime',
+    'megaplay': 'MegaPlay',
+  };
 
   Future<ResolvedSource> resolve(
     AnimeItem item,
@@ -117,6 +151,52 @@ class ResolverService {
       final message = data is Map<String, dynamic>
           ? (data['error'] as String?) ?? 'Nothing playable.'
           : 'Nothing playable.';
+      throw ResolveFailure(message);
+    }
+    return source;
+  }
+
+  /// Resolves an episode through aniwatch.lu instead of aniwaves.
+  ///
+  /// aniwatch.lu has no id space shared with aniwaves, so the worker maps the
+  /// title (plus its romanised name, which the mirror indexes as well) onto its
+  /// own catalog, then walks episode -> server -> native stream. Requests are
+  /// proxied by default: the native HLS is gated on a mobile UA and a
+  /// zokoanime referer, and the stream URLs are short-lived.
+  Future<ResolvedSource> resolveAniwatch(
+    AnimeItem item,
+    int ep, {
+    required bool dub,
+    bool proxy = true,
+  }) async {
+    final base = AppConfig.aniwatchBase.replaceFirst(RegExp(r'/$'), '');
+    final uri = Uri.parse('$base/source').replace(
+      queryParameters: {
+        'title': item.title,
+        if ((item.originalTitle ?? '').trim().isNotEmpty)
+          'jname': item.originalTitle!.trim(),
+        'ep': '$ep',
+        if (dub) 'dub': '1',
+        if (proxy) 'proxy': '1',
+      },
+    );
+    final http.Response res;
+    try {
+      res = await _client.get(uri).timeout(const Duration(seconds: 40));
+    } catch (_) {
+      throw const ResolveFailure('Failed to reach aniwatch.');
+    }
+    Object? data;
+    try {
+      data = jsonDecode(res.body);
+    } catch (_) {
+      throw ResolveFailure('Aniwatch error ${res.statusCode}.');
+    }
+    final source = ResolvedSource.tryFromJson(data);
+    if (source == null) {
+      final message = data is Map<String, dynamic>
+          ? (data['error'] as String?) ?? 'Aniwatch had nothing playable.'
+          : 'Aniwatch had nothing playable.';
       throw ResolveFailure(message);
     }
     return source;

@@ -1,124 +1,184 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
-import 'package:package_info_plus/package_info_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-/// Details about a newer release found on GitHub.
-class VersionInfo {
-  const VersionInfo({required this.version, required this.url});
+/// A single published release plus its changelog and installable assets.
+class ReleaseInfo {
+  const ReleaseInfo({
+    required this.version,
+    required this.url,
+    this.notes = '',
+    this.publishedAt,
+    this.prerelease = false,
+    this.assets = const <ReleaseAsset>[],
+  });
 
   final String version;
   final String url;
+
+  /// Release body as written on GitHub, rendered by the updates screen.
+  final String notes;
+  final DateTime? publishedAt;
+  final bool prerelease;
+  final List<ReleaseAsset> assets;
+
+  bool get hasNotes => notes.trim().isNotEmpty;
+
+  String get publishedLabel {
+    final at = publishedAt;
+    if (at == null) return '';
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${months[at.month - 1]} ${at.day}, ${at.year}';
+  }
 }
 
-/// Checks the installed Mirai version against the latest GitHub release.
+class ReleaseAsset {
+  const ReleaseAsset({
+    required this.name,
+    required this.url,
+    this.sizeBytes = 0,
+    this.downloads = 0,
+  });
+
+  final String name;
+  final String url;
+  final int sizeBytes;
+  final int downloads;
+
+  String get sizeLabel {
+    if (sizeBytes <= 0) return '';
+    final mb = sizeBytes / (1024 * 1024);
+    return mb >= 10 ? '${mb.round()} MB' : '${mb.toStringAsFixed(1)} MB';
+  }
+}
+
+/// Reads Mirai's GitHub releases feed and parses it into [ReleaseInfo].
 ///
-/// The result is cached for a day so the API is only hit once per day per
-/// installed version; an upgrade it already announced stays visible from the
-/// cache. Any failure quietly results in "no update" — the banner must never
-/// break browsing.
+/// One fetch path and one cache window, so the settings banner and the updates
+/// screen never re-hit the API for data the other already loaded. Cache state
+/// is per instance; callers should hold one checker for the app's lifetime.
 class VersionChecker {
-  VersionChecker({http.Client? client})
-      : _client = client ?? http.Client();
+  VersionChecker({http.Client? client}) : _client = client;
 
-  final http.Client _client;
+  final http.Client? _client;
 
-  static const _listUrl =
-      'https://api.github.com/repos/groovyrey/mirai/releases';
-  static const _releasesUrl = 'https://github.com/groovyrey/mirai/releases/latest';
-  static const _cacheWindow = Duration(hours: 24);
-  static const _cachedVersionKey = 'cached_latest_version';
-  static const _cachedUrlKey = 'cached_latest_url';
-  static const _cachedCheckKey = 'last_version_check';
+  static const _feedEndpoint =
+      'https://api.github.com/repos/groovyrey/mirai/releases?per_page=20';
 
-  /// Returns a newer release than the installed app, or null when Mirai is up
-  /// to date (or the check can't be made). When [includePrerelease] is true,
-  /// the rolling beta pre-release is announced too; when [enabled] is false the
-  /// check is skipped entirely (auto-check turned off in Settings).
-  Future<VersionInfo?> check({
+  static const _cacheDuration = Duration(hours: 24);
+  static const _headers = {
+    'Accept': 'application/vnd.github+json',
+    'User-Agent': 'mirai-android',
+  };
+
+  String _cachedFeed = '';
+  DateTime _cachedAt = DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// Every published release on the requested channel, newest first.
+  ///
+  /// Returns an empty list when [enabled] is false so an opted-out user never
+  /// touches the network.
+  Future<List<ReleaseInfo>> releases({
     bool includePrerelease = false,
     bool enabled = true,
+    bool forceRefresh = false,
+    Duration cacheFor = _cacheDuration,
   }) async {
-    if (!enabled) return null;
-    final prefs = await SharedPreferences.getInstance();
-    final installed = await _installedVersion();
-    final suffix = includePrerelease ? '_beta' : '_stable';
+    if (!enabled) return const <ReleaseInfo>[];
+    final raw = await _feed(forceRefresh: forceRefresh, cacheFor: cacheFor);
+    final parsed = _parse(raw);
+    return parsed.where((r) => includePrerelease || !r.prerelease).toList()
+      ..sort((a, b) =>
+          (b.publishedAt ?? DateTime(0)).compareTo(a.publishedAt ?? DateTime(0)));
+  }
 
+  /// The newest release on the requested channel, if one is published.
+  Future<ReleaseInfo?> latest({
+    bool includePrerelease = false,
+    bool enabled = true,
+    bool forceRefresh = false,
+    Duration cacheFor = _cacheDuration,
+  }) async {
+    final all = await releases(
+      includePrerelease: includePrerelease,
+      enabled: enabled,
+      forceRefresh: forceRefresh,
+      cacheFor: cacheFor,
+    );
+    return all.isEmpty ? null : all.first;
+  }
+
+  Future<String> _feed({
+    required bool forceRefresh,
+    required Duration cacheFor,
+  }) async {
+    if (!forceRefresh &&
+        _cachedFeed.isNotEmpty &&
+        DateTime.now().difference(_cachedAt) < cacheFor) {
+      return _cachedFeed;
+    }
     try {
-      final cachedVersion = prefs.getString('$_cachedVersionKey$suffix') ?? '';
-      final cachedUrl =
-          prefs.getString('$_cachedUrlKey$suffix') ?? _releasesUrl;
-      final lastCheck = prefs.getInt('$_cachedCheckKey$suffix') ?? 0;
-      final withinWindow =
-          DateTime.now().millisecondsSinceEpoch - lastCheck <
-              _cacheWindow.inMilliseconds;
+      final res = await (_client ?? http.Client())
+          .get(Uri.parse(_feedEndpoint), headers: _headers)
+          .timeout(const Duration(seconds: 12));
+      if (res.statusCode != 200) return _cachedFeed;
+      final decoded = jsonDecode(res.body);
+      if (decoded is! List) return _cachedFeed;
+      _cachedFeed = jsonEncode(decoded);
+      _cachedAt = DateTime.now();
+      return _cachedFeed;
+    } catch (_) {
+      return _cachedFeed;
+    }
+  }
 
-      if (_isNewer(cachedVersion, installed)) {
-        return VersionInfo(version: cachedVersion, url: cachedUrl);
-      }
-      if (withinWindow) return null;
-
-      final res = await _client
-          .get(Uri.parse(_listUrl), headers: const {'User-Agent': 'mirai'})
-          .timeout(const Duration(seconds: 8));
-      if (res.statusCode != 200) return null;
-
-      final data = jsonDecode(res.body) as List<dynamic>;
-      Map<String, dynamic>? latest;
-      for (final entry in data) {
-        final item = (entry as Map).cast<String, dynamic>();
+  static List<ReleaseInfo> _parse(String raw) {
+    if (raw.isEmpty) return const <ReleaseInfo>[];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return const <ReleaseInfo>[];
+      final out = <ReleaseInfo>[];
+      for (final item in decoded) {
+        if (item is! Map) continue;
+        final tag = item['tag_name'];
+        if (tag is! String || tag.isEmpty) continue;
         if (item['draft'] == true) continue;
-        if (item['prerelease'] == true && !includePrerelease) continue;
-        latest = item;
-        break;
+        final url = item['html_url'];
+        out.add(ReleaseInfo(
+          version: tag.replaceFirst(RegExp('^v'), ''),
+          url: url is String ? url : _feedEndpoint,
+          notes: item['body'] is String ? item['body'] as String : '',
+          publishedAt: DateTime.tryParse('${item['published_at']}'),
+          prerelease: item['prerelease'] == true,
+          assets: _parseAssets(item['assets']),
+        ));
       }
-      if (latest == null) return null;
-
-      final tag = (latest['tag_name'] as String?) ?? '';
-      final version = tag.startsWith('v') ? tag.substring(1) : tag;
-      final url = latest['html_url'] as String? ?? _releasesUrl;
-      if (version.isEmpty) return null;
-
-      await prefs.setInt(
-          '$_cachedCheckKey$suffix', DateTime.now().millisecondsSinceEpoch);
-      await prefs.setString('$_cachedVersionKey$suffix', version);
-      await prefs.setString('$_cachedUrlKey$suffix', url);
-
-      if (!_isNewer(version, installed)) return null;
-      return VersionInfo(version: version, url: url);
+      return out;
     } catch (_) {
-      return null;
+      return const <ReleaseInfo>[];
     }
   }
 
-  Future<String> _installedVersion() async {
-    try {
-      final info = await PackageInfo.fromPlatform();
-      return info.version;
-    } catch (_) {
-      return '';
+  static List<ReleaseAsset> _parseAssets(Object? raw) {
+    if (raw is! List) return const <ReleaseAsset>[];
+    final out = <ReleaseAsset>[];
+    for (final item in raw) {
+      if (item is! Map) continue;
+      final name = item['name'];
+      final url = item['browser_download_url'];
+      if (name is! String || url is! String) continue;
+      final size = item['size'];
+      final downloads = item['download_count'];
+      out.add(ReleaseAsset(
+        name: name,
+        url: url,
+        sizeBytes: size is int ? size : 0,
+        downloads: downloads is int ? downloads : 0,
+      ));
     }
-  }
-
-  // Compares "major.minor.patch" version strings; later wins.
-  bool _isNewer(String candidate, String current) {
-    final a = _parts(candidate);
-    final b = _parts(current);
-    for (var i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return a[i] > b[i];
-    }
-    return false;
-  }
-
-  List<int> _parts(String value) {
-    // Compare only the numeric core; a "-beta.1" (or similar) suffix on the
-    // third segment is ignored so 2.0.0-beta.1 ranks above 1.0.0.
-    final core = value.split('-').first;
-    final segments = core.split('.');
-    return [
-      for (var i = 0; i < 3; i++)
-        int.tryParse(segments.length > i ? segments[i] : '0') ?? 0,
-    ];
+    return out;
   }
 }

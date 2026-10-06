@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../services/saved.dart';
 import '../services/watch_history.dart';
+import '../state/app_state.dart';
+import '../state/update_notifier.dart';
 import '../theme/app_theme.dart';
 import '../widgets/mirai_wordmark.dart';
 import 'about_screen.dart';
@@ -12,6 +14,7 @@ import 'saved_screen.dart';
 import 'search_screen.dart';
 import 'settings_screen.dart';
 import 'trending_screen.dart';
+import 'update_screen.dart';
 
 /// Mirai's shell: a wordmark header with a drawer navigation.
 class AppShell extends StatefulWidget {
@@ -23,6 +26,10 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _index = 0;
+
+  /// Shared so the drawer, the settings banner, and the updates screen agree
+  /// on one check and one cache window.
+  final UpdateNotifier _updates = UpdateNotifier();
 
   static const _settingsIndex = 5;
 
@@ -36,12 +43,35 @@ class _AppShellState extends State<AppShell> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    // Deferred so the first frame lands before the network call starts.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final state = context.read<AppState>();
+      _updates.check(
+        includePrerelease: state.updateChannel == UpdateChannel.beta,
+        enabled: state.autoCheckUpdates,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _updates.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider.value(
       value: Saved.instance,
       child: ChangeNotifierProvider.value(
         value: WatchHistory.instance,
-        child: _ShellScaffold(index: _index, onTab: _select),
+        child: ChangeNotifierProvider.value(
+          value: _updates,
+          child: _ShellScaffold(index: _index, onTab: _select),
+        ),
       ),
     );
   }
@@ -145,6 +175,14 @@ class _Drawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final notifier = context.watch<UpdateNotifier>();
+    final state = context.watch<AppState>();
+    final updates = notifier.hasUpdateOn(
+      state.updateChannel == UpdateChannel.beta,
+    )
+        ? notifier.latest
+        : null;
+
     return Drawer(
       backgroundColor: context.appBackground,
       child: SafeArea(
@@ -163,6 +201,14 @@ class _Drawer extends StatelessWidget {
                 icon: _AppShellState._tabs[i].icon,
                 selected: selected == i,
                 onTap: () => onSelect(i),
+              ),
+            if (updates != null)
+              _DrawerItem(
+                label: 'Update to v${updates.version}',
+                icon: Icons.arrow_upward_rounded,
+                selected: false,
+                onTap: () => Navigator.of(context)
+                    .push(UpdateScreen.route(notifier.checker)),
               ),
             const Spacer(),
             const Divider(height: 1, thickness: 1),

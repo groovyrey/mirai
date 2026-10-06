@@ -32,6 +32,7 @@ class PlayerScreen extends StatefulWidget {
     this.dub = false,
     this.sv,
     this.embed = false,
+    this.sourceKind,
     this.subtitle,
     this.initialPosition,
     this.episodes,
@@ -48,6 +49,11 @@ class PlayerScreen extends StatefulWidget {
   /// When true the player opens directly in the DoodStream embed instead of
   /// attempting a direct native stream first.
   final bool embed;
+
+  /// Which catalog resolves the episode: 'aniwaves' (default) or 'aniwatch'.
+  /// Carried across prev/next so switching to the aniwatch source survives
+  /// episode navigation.
+  final String? sourceKind;
 
   /// Short label like "EP 05" shown under the title in the top bar.
   final String? subtitle;
@@ -80,6 +86,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
   double? _dragSeconds;
   String? _embedProvider;
   int _nativeAttempts = 0;
+
+  /// Which catalog the current playback came from. Drives the source sheet and
+  /// keeps the choice when navigating between episodes.
+  String _sourceKind = 'aniwaves';
 
   // Native watchdog: retries when the stream stalls instead of leaving the
   // clock frozen at 0:00 or mid-episode. Guarded by live playing state, so a
@@ -116,6 +126,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _hardwareDecode = app.hardwareDecode;
     _defaultRate = app.defaultSpeed;
     _keepAwake = app.keepAwake;
+    _sourceKind = widget.sourceKind ?? 'aniwaves';
     unawaited(_loadResume());
     _start();
   }
@@ -240,6 +251,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
           dub: widget.dub,
           sv: sv,
           embed: embed,
+          sourceKind: _sourceKind,
           subtitle: 'EP ${target.ep}',
           episodes: widget.episodes,
         ),
@@ -266,6 +278,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
   /// mobile UA header is attached so the CDN streams it); otherwise the worker
   /// hands back an embed page which we load in the WebView.
   Future<void> _start() async {
+    if (_sourceKind == 'aniwatch') {
+      await _startAniwatch();
+      return;
+    }
     setState(() => _mode = _PlayerMode.loading);
     if (widget.embed) {
       await _startWithEmbed();
@@ -310,6 +326,45 @@ class _PlayerScreenState extends State<PlayerScreen> {
         'The direct stream couldn\'t be reached, so Mirai opened the embed player instead.',
         url: _lastEmbedUrl,
         provider: _lastSource?.provider,
+      );
+    }
+  }
+
+  /// Resolves through aniwatch.lu instead of aniwaves.
+  ///
+  /// The worker maps the title onto the mirror's catalog and returns its native
+  /// HLS (ZokoAnime / MegaPlay), already wrapped in the media proxy because the
+  /// CDN gates on a mobile UA and a zokoanime referer. When the mirror has no
+  /// entry for the title or the episode, playback falls back to the aniwaves
+  /// embed so the user is never stuck on a dead screen.
+  Future<void> _startAniwatch() async {
+    setState(() => _mode = _PlayerMode.loading);
+    try {
+      final source = await _resolver.resolveAniwatch(
+        widget.item,
+        widget.ep,
+        dub: widget.dub,
+      );
+      if (!mounted) return;
+      _lastSource = source;
+      _lastEmbedUrl = _embedWrapUrl();
+      if (await _playNative(source)) return;
+      _startEmbedFallback(
+        'Aniwatch\'s stream couldn\'t be reached, so Mirai opened the embed player instead.',
+        url: _lastEmbedUrl,
+        provider: source.provider,
+      );
+    } on ResolveFailure catch (error) {
+      if (!mounted) return;
+      _startEmbedFallback(
+        'Aniwatch didn\'t have this episode (${error.message}), so Mirai opened the embed player instead.',
+        url: _lastEmbedUrl,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      _startEmbedFallback(
+        'Aniwatch couldn\'t be reached, so Mirai opened the embed player instead.',
+        url: _lastEmbedUrl,
       );
     }
   }
@@ -406,7 +461,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _errorSub = errorSub;
     setState(() {
       _mode = _PlayerMode.loading;
-      _nativeLabel = 'DoodStream';
+      _nativeLabel = ResolverService.providerLabels[source.provider] ?? source.provider;
     });
     try {
       var opened = false;
@@ -556,6 +611,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
     if (_lastSeenPosition > const Duration(seconds: 8)) {
       _resumePosition = _lastSeenPosition;
     }
+    // aniwatch HLS URLs are short-lived and token-bound, so replaying the same
+    // stream would just fail again. Re-resolve instead to get fresh URLs.
+    if (_sourceKind == 'aniwatch') {
+      _nativeAttempts = 0;
+      await _startAniwatch();
+      return;
+    }
     if (_nativeAttempts < 2) {
       final retried = await _retryFromLastSource();
       if (!mounted) return;
@@ -591,11 +653,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
   /// The source currently on screen, used to highlight the sheet item.
   String? _currentSourceName() {
     if (_mode == _PlayerMode.embed) return 'embed';
-    if (_mode == _PlayerMode.native) return 'doodstream';
+    if (_mode == _PlayerMode.native) {
+      return _sourceKind == 'aniwatch' ? 'aniwatch' : 'doodstream';
+    }
     return null;
   }
 
-  /// Switches between the direct DoodStream player and the embed player.
+  /// Switches between the direct DoodStream player, the aniwatch source, and
+  /// the embed player.
   void _switchSource(String name) {
     if (name == _currentSourceName()) return;
     _hideTimer?.cancel();
@@ -615,12 +680,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _lastEmbedUrl = null;
     unawaited(brokenSub?.cancel());
     unawaited(broken?.dispose());
+    _nativeAttempts = 0;
     if (name == 'embed') {
       // Ask the worker for an embed explicitly so we get the actual player
       // page (echovideo / byse) instead of the dood stream again.
+      _sourceKind = 'aniwaves';
       unawaited(_startWithEmbed());
     } else {
-      _nativeAttempts = 0;
+      _sourceKind = name == 'aniwatch' ? 'aniwatch' : 'aniwaves';
       unawaited(_start());
     }
   }
@@ -661,6 +728,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
         name: 'doodstream',
         label: 'Direct · DoodStream',
         current: current == 'doodstream',
+      ),
+      (
+        name: 'aniwatch',
+        label: 'AniWatch · ZokoAnime',
+        current: current == 'aniwatch',
       ),
       (
         name: 'embed',

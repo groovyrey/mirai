@@ -8,42 +8,24 @@ import '../services/saved.dart';
 import '../services/version_checker.dart';
 import '../services/watch_history.dart';
 import '../state/app_state.dart';
+import '../state/update_notifier.dart';
 import '../theme/app_theme.dart';
 import '../widgets/anime_card.dart';
+import 'update_screen.dart';
 
 /// Settings: app preferences and links.
-class SettingsScreen extends StatefulWidget {
+class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
-
-  @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
-}
-
-class _SettingsScreenState extends State<SettingsScreen> {
-  final VersionChecker _checker = VersionChecker();
-  VersionInfo? _update;
-
-  @override
-  void initState() {
-    super.initState();
-    _maybedCheck();
-  }
-
-  Future<void> _maybedCheck() async {
-    await Future<void>.delayed(const Duration(seconds: 2));
-    if (!mounted) return;
-    final state = context.read<AppState>();
-    final info = await _checker.check(
-      includePrerelease: state.updateChannel == UpdateChannel.beta,
-      enabled: state.autoCheckUpdates,
-    );
-    if (!mounted) return;
-    if (info != null) setState(() => _update = info);
-  }
 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
+    final notifier = context.watch<UpdateNotifier>();
+    final pending = notifier.hasUpdateOn(
+      state.updateChannel == UpdateChannel.beta,
+    )
+        ? notifier.latest
+        : null;
     return SafeArea(
       bottom: false,
       child: ListView(
@@ -59,7 +41,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
-          if (_update != null) _banner(context, _update!),
+          if (pending != null) _banner(context, pending),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
             child: SectionLabel(text: 'PLAYBACK'),
@@ -147,7 +129,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _banner(BuildContext context, VersionInfo update) {
+  Widget _banner(BuildContext context, ReleaseInfo update) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       child: Container(
@@ -169,7 +151,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'v${update.version} is out. Grab it from the release page.',
+              'v${update.version} is out.',
               style: context.appTextTheme.bodyLarge?.copyWith(
                 color: context.appOnAccent,
               ),
@@ -180,10 +162,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 foregroundColor: context.appOnAccent,
                 padding: EdgeInsets.zero,
               ),
-              onPressed: () => _open(
-                'https://github.com/groovyrey/mirai/releases/latest',
-              ),
-              child: const Text('GO TO RELEASES'),
+              onPressed: () => Navigator.of(context).push(
+                    UpdateScreen.route(context.read<UpdateNotifier>().checker),
+                  ),
+              child: const Text('SEE WHAT CHANGED'),
             ),
           ],
         ),
@@ -239,7 +221,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     if (choice != null) {
       await state.setUpdateChannel(choice);
-      setState(() => _update = null);
+      if (!context.mounted) return;
+      await context.read<UpdateNotifier>().check(
+            includePrerelease: choice == UpdateChannel.beta,
+            enabled: context.read<AppState>().autoCheckUpdates,
+            force: true,
+          );
     }
   }
 
