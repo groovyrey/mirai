@@ -102,13 +102,7 @@ class _ShellScaffold extends StatelessWidget {
       body: Column(
         children: [
           _Header(onTab: onTab),
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 240),
-              switchInCurve: Curves.easeOutCubic,
-              child: sections[index],
-            ),
-          ),
+          Expanded(child: sections[index]),
         ],
       ),
     );
@@ -133,6 +127,13 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Every colour here comes from the AppColors statics, which are swapped
+    // in before this subtree builds. Watching AppState is what marks the
+    // header dirty on a theme change. Without it the only inherited lookup
+    // lives in the children, so the header itself stays put until a tab
+    // switch rebuilds it.
+    context.watch<AppState>();
+
     return ColoredBox(
       color: context.appBackground,
       child: SafeArea(
