@@ -186,19 +186,27 @@ class LeadCard extends StatelessWidget {
               ),
               Positioned(
                 left: 14,
+                top: 10,
+                child: Text(
+                  rank.toString().padLeft(2, '0'),
+                  style: context.appTextTheme.displayMedium?.copyWith(
+                    fontSize: 34,
+                    fontWeight: FontWeight.w800,
+                    height: 0.9,
+                    color: context.appAccent,
+                    shadows: const [
+                      Shadow(color: Colors.black, blurRadius: 8),
+                    ],
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 14,
                 right: 14,
                 bottom: 12,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'NO. ${rank.toString().padLeft(2, '0')}',
-                      style: context.appTextTheme.labelSmall?.copyWith(
-                        color: context.appAccent,
-                        letterSpacing: 2,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
                     Text(
                       item.title,
                       maxLines: 2,

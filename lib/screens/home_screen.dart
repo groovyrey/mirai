@@ -107,7 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _leadSection(BuildContext context) {
-    final leads = _lead!.take(4).toList();
+    final leads = _lead!.take(5).toList();
     if (leads.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,7 +115,7 @@ class _HomeScreenState extends State<HomeScreen> {
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
           child: SectionLabel(
-            text: 'TOP SIGNAL',
+            text: 'TOP 5',
             onMore: () => _openTrending(context),
           ),
         ),
