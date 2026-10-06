@@ -1,7 +1,7 @@
 name: mirai
 description: "Mirai - an anime streaming app, powered by aniwaves."
 publish_to: 'none'
-version: 1.1.0+2
+version: 1.2.0+2
 
 environment:
   sdk: ^3.8.1
