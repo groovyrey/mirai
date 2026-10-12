@@ -210,6 +210,11 @@ class ResolverService {
   /// dood's embed and CDN pages expect a dood referer or they reject the video.
   static const doodReferer = 'https://playmogo.com/';
 
+  /// Attempts for the embed + pass_md5 walk. dood's key endpoint intermittently
+  /// answers with an empty body, `RELOAD`, or an HTML error page (anti-bot), so
+  /// one attempt is not reliable.
+  static const _doodAttempts = 3;
+
   static String _noise(int length) {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     final rnd = Random();
@@ -227,6 +232,25 @@ class ResolverService {
   /// makePlay(). The returned URL is played directly with a mobile UA (see
   /// [doodReferer]), which the CDN serves with a real 206 MP4.
   Future<String> resolveDoodNative(
+    String embedUrl, {
+    required int animeId,
+    required int ep,
+  }) async {
+    ResolveFailure? lastError;
+    for (var attempt = 0; attempt < _doodAttempts; attempt++) {
+      if (attempt > 0) {
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+      }
+      try {
+        return await _resolveDoodOnce(embedUrl, animeId: animeId, ep: ep);
+      } on ResolveFailure catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError ?? const ResolveFailure('DoodStream resolution failed.');
+  }
+
+  Future<String> _resolveDoodOnce(
     String embedUrl, {
     required int animeId,
     required int ep,
