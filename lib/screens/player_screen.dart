@@ -21,9 +21,10 @@ import '../widgets/embed_ad_guard.dart';
 
 /// Immersive full-screen player. Two sources: AniWatch's ZokoAnime server plays
 /// natively through media_kit (its VTT subtitle tracks are selectable), and
-/// DoodStream opens its embed page in the WebView with the ad layer stripped.
-/// There is no direct DoodStream MP4 path any more; the aniwaves resolver keeps
-/// its dood support for a future workaround.
+/// aniwaves DoodStream is resolved to a direct MP4 on the phone and also played
+/// natively, with its embed page opened in the WebView as a last resort. When
+/// ZokoAnime can't serve an episode, the player falls through to DoodStream
+/// rather than a bare watch page.
 class PlayerScreen extends StatefulWidget {
   const PlayerScreen({
     super.key,
@@ -46,12 +47,13 @@ class PlayerScreen extends StatefulWidget {
   /// that server instead of the worker's default priority.
   final int? sv;
 
-  /// When true the player opens directly in the DoodStream embed.
+  /// When true the player opens directly in the DoodStream embed instead of
+  /// trying native playback first.
   final bool embed;
 
   /// Which catalog resolves the episode: 'aniwatch' (default, ZokoAnime native
-  /// HLS with subtitles) or 'aniwaves' (DoodStream embed). Carried across
-  /// prev/next so the source choice survives episode navigation.
+  /// HLS with subtitles) or 'aniwaves' (DoodStream, native MP4 first). Carried
+  /// across prev/next so the source choice survives episode navigation.
   final String? sourceKind;
 
   /// Short label like "EP 05" shown under the title in the top bar.
@@ -293,15 +295,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
-  /// Resolves the selected source. AniWatch's ZokoAnime server plays natively
-  /// through media_kit; the DoodStream source opens its embed page in the
-  /// WebView. There is no direct DoodStream MP4 path any more.
+  /// Resolves the selected source. ZokoAnime plays natively through media_kit;
+  /// DoodStream is resolved to a direct MP4 on the phone and also played
+  /// natively, with its embed page as a last resort.
   Future<void> _start() async {
     if (_sourceKind == 'aniwatch') {
       await _startAniwatch();
       return;
     }
-    await _startWithEmbed();
+    await _startDood();
   }
 
   /// Resolves through aniwatch.lu instead of aniwaves.
@@ -309,8 +311,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
   /// The worker maps the title onto the mirror's catalog and returns its native
   /// HLS (ZokoAnime / MegaPlay), already wrapped in the media proxy because the
   /// CDN gates on a mobile UA and a zokoanime referer. When the mirror has no
-  /// entry for the title or the episode, playback falls back to the aniwaves
-  /// embed so the user is never stuck on a dead screen.
+  /// entry for the title or the episode, playback falls through to the
+  /// DoodStream source so the user is never stuck on a dead screen.
   Future<void> _startAniwatch() async {
     setState(() => _mode = _PlayerMode.loading);
     try {
@@ -320,23 +322,22 @@ class _PlayerScreenState extends State<PlayerScreen> {
         dub: widget.dub,
       );
       if (!mounted) return;
-      _lastEmbedUrl = _embedWrapUrl();
       if (await _playNative(source)) return;
-      _startEmbedFallback(
-        'Aniwatch\'s stream couldn\'t be reached, so Mirai opened the embed player instead.',
-        url: _lastEmbedUrl,
+      await _startDood(
+        notice:
+            'ZokoAnime\'s stream couldn\'t be reached, so Mirai played the DoodStream source instead.',
       );
     } on ResolveFailure catch (error) {
       if (!mounted) return;
-      _startEmbedFallback(
-        'Aniwatch didn\'t have this episode (${error.message}), so Mirai opened the embed player instead.',
-        url: _lastEmbedUrl,
+      await _startDood(
+        notice:
+            'ZokoAnime didn\'t have this episode (${error.message}), so Mirai played the DoodStream source instead.',
       );
     } catch (_) {
       if (!mounted) return;
-      _startEmbedFallback(
-        'Aniwatch couldn\'t be reached, so Mirai opened the embed player instead.',
-        url: _lastEmbedUrl,
+      await _startDood(
+        notice:
+            'ZokoAnime couldn\'t be reached, so Mirai played the DoodStream source instead.',
       );
     }
   }
@@ -627,9 +628,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
       await _startAniwatch();
       return;
     }
+    // A dood stream that stalled is dropped to the embed rather than retried,
+    // because the client-side dood walk re-resolves the same wrapper and would
+    // otherwise loop between a stall and another failing native attempt.
     _startEmbedFallback(
       'The stream kept dropping, so Mirai opened the embed player instead.',
-      url: _lastEmbedUrl,
+      url: _lastEmbedUrl ?? _embedWrapUrl(),
     );
   }
 
@@ -653,14 +657,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
   }
 
-  /// The source currently on screen, used to highlight the sheet item.
+  /// The source currently on screen, used to highlight the sheet item. Native
+  /// playback follows the active source kind; the embed always belongs to the
+  /// DoodStream source.
   String? _currentSourceName() {
-    if (_mode == _PlayerMode.embed) return 'embed';
-    if (_mode == _PlayerMode.native) return 'aniwatch';
+    if (_mode == _PlayerMode.embed) return 'aniwaves';
+    if (_mode == _PlayerMode.native) {
+      return _sourceKind == 'aniwatch' ? 'aniwatch' : 'aniwaves';
+    }
     return null;
   }
 
-  /// Switches between the aniwatch source (ZokoAnime) and the DoodStream embed.
+  /// Switches between the aniwatch source (ZokoAnime) and DoodStream.
   void _switchSource(String name) {
     if (name == _currentSourceName()) return;
     _hideTimer?.cancel();
@@ -684,35 +692,92 @@ class _PlayerScreenState extends State<PlayerScreen> {
     unawaited(brokenSub?.cancel());
     unawaited(broken?.dispose());
     _nativeAttempts = 0;
-    if (name == 'embed') {
-      // Ask the worker for an embed explicitly so we get the actual player
-      // page (echovideo / byse) for the DoodStream source.
+    if (name == 'aniwaves') {
       _sourceKind = 'aniwaves';
-      unawaited(_startWithEmbed());
+      unawaited(_startDood());
     } else {
       _sourceKind = 'aniwatch';
       unawaited(_startAniwatch());
     }
   }
 
-  Future<void> _startWithEmbed() async {
-    setState(() => _mode = _PlayerMode.loading);
+  /// Resolves and plays the aniwaves DoodStream source.
+  ///
+  /// The worker hands back a dood embed wrapper (its Cloudflare egress can't
+  /// pass dood's challenge), so the direct MP4 is resolved on the phone from
+  /// that wrapper and played natively. The embed page is only opened when that
+  /// on-device walk fails, or when the caller asked for the embed explicitly;
+  /// [notice] explains why playback isn't on ZokoAnime.
+  Future<void> _startDood({String? notice}) async {
+    setState(() {
+      _sourceKind = 'aniwaves';
+      _mode = _PlayerMode.loading;
+    });
+    _lastEmbedUrl = null;
+    _nativeAttempts = 0;
     try {
       final source = await _resolver.resolve(
         widget.item,
         widget.ep,
         dub: widget.dub,
-        sv: widget.sv,
-        embed: true,
+        sv: widget.sv ?? 2,
+        proxy: true,
+        embed: widget.embed,
       );
       if (!mounted) return;
       _lastEmbedUrl = source.embedUrl?.isNotEmpty == true
           ? source.embedUrl
-          : source.playUrl;
-      _startEmbedFallback(null, url: _lastEmbedUrl);
-    } catch (_) {
-      if (!mounted) return;
-      _startEmbedFallback(null, url: _lastEmbedUrl);
+          : (source.embedMode ? source.playUrl : null);
+      if (!widget.embed) {
+        if (await _tryPlayDoodClient(source)) return;
+        if (!source.embedMode && await _playNative(source)) return;
+      }
+    } catch (error) {
+      debugPrint('[player] dood resolve failed: $error');
+    }
+    if (!mounted) return;
+    _startEmbedFallback(notice, url: _lastEmbedUrl ?? _embedWrapUrl());
+  }
+
+  /// Attempts native playback of a dood source resolved directly on the phone
+  /// from the original embed wrapper, bypassing the proxied worker MP4. Only
+  /// DoodStream qualifies.
+  Future<bool> _tryPlayDoodClient(ResolvedSource source) async {
+    if (source.provider != 'doodstream' && source.provider != 'dood') {
+      return false;
+    }
+    final direct = await _tryClientDoodNative(source);
+    if (direct == null) return false;
+    return _playNative(direct);
+  }
+
+  /// The worker returns a dood embed page when its own network can't pass
+  /// dood's challenge. A real device passes, so the direct MP4 is resolved here
+  /// and played straight from dood's CDN (which blocks CF egress) with the
+  /// mobile UA it expects, with no worker proxy in between.
+  Future<ResolvedSource?> _tryClientDoodNative(ResolvedSource source) async {
+    if (source.provider != 'doodstream' && source.provider != 'dood') {
+      return null;
+    }
+    try {
+      final mp4 = await _resolver.resolveDoodNative(
+        source.embedUrl ?? source.playUrl,
+        animeId: widget.item.id,
+        ep: widget.ep,
+      );
+      return ResolvedSource(
+        playUrl: mp4,
+        provider: 'doodstream',
+        quality: 'auto',
+        embedMode: false,
+        httpHeaders: {
+          'User-Agent': ResolverService.mobileUa,
+          'Referer': ResolverService.doodReferer,
+        },
+      );
+    } catch (error) {
+      debugPrint('[player] client dood native failed: $error');
+      return null;
     }
   }
 
@@ -725,9 +790,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
         current: current == 'aniwatch',
       ),
       (
-        name: 'embed',
-        label: 'DoodStream · embed',
-        current: current == 'embed',
+        name: 'aniwaves',
+        label: 'DoodStream',
+        current: current == 'aniwaves',
       ),
     ];
     showModalBottomSheet<void>(

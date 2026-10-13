@@ -52,8 +52,8 @@ class AboutScreen extends StatelessWidget {
     (
       Icons.play_circle_outline_rounded,
       'DoodStream',
-      'Opens in the embed player, switchable per title',
-      'EMBED',
+      'Direct MP4 on your phone, embed player as fallback',
+      'FALLBACK',
     ),
   ];
 
