@@ -76,6 +76,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Player? _player;
   VideoController? _videoController;
   StreamSubscription<String>? _errorSub;
+
+  // Native readiness gate: the spinner stays until the stream reports a real
+  // duration and actually starts playing. `Media.open` resolving only means the
+  // demuxer attached, not that a frame is on screen, so switching to the video
+  // surface on open alone leaves a black screen under a vanished spinner.
+  StreamSubscription<Duration>? _readyDurationSub;
+  StreamSubscription<bool>? _readyPlayingSub;
+  bool _videoReady = false;
   WebViewController? _web;
   String _fallbackNotice = '';
   bool _nativeFailed = false;
@@ -159,6 +167,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _stopStallWatchdog();
     unawaited(_errorSub?.cancel());
     _errorSub = null;
+    unawaited(_readyDurationSub?.cancel());
+    unawaited(_readyPlayingSub?.cancel());
+    _readyDurationSub = null;
+    _readyPlayingSub = null;
     EmbedAdGuard.detach();
     final player = _player;
     _player = null;
@@ -389,8 +401,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
       setState(() {
         _player = player;
         _videoController = controller;
+        _videoReady = false;
         _mode = _PlayerMode.native;
       });
+      _watchReady(player);
       _lastPosition = Duration.zero;
       _positionSub?.cancel();
       _positionSub = player.stream.position.listen(_onNativePosition);
@@ -411,6 +425,41 @@ class _PlayerScreenState extends State<PlayerScreen> {
       unawaited(player.dispose());
       return false;
     }
+  }
+
+  /// Flips [_videoReady] once the stream reports a real duration and is actually
+  /// playing, so the spinner covers the black surface until the first frame is
+  /// up instead of vanishing the moment `Media.open` resolves.
+  void _watchReady(Player player) {
+    _stopReadyWatch();
+    var duration = player.state.duration;
+    var playing = player.state.playing;
+    void evaluate() {
+      if (!mounted || !identical(_player, player)) return;
+      if (!_videoReady && duration > Duration.zero && playing) {
+        setState(() {
+          _videoReady = true;
+          _controlsVisible = true;
+        });
+        _scheduleHide();
+      }
+    }
+    _readyDurationSub = player.stream.duration.listen((value) {
+      duration = value;
+      evaluate();
+    });
+    _readyPlayingSub = player.stream.playing.listen((value) {
+      playing = value;
+      evaluate();
+    });
+    evaluate();
+  }
+
+  void _stopReadyWatch() {
+    unawaited(_readyDurationSub?.cancel());
+    unawaited(_readyPlayingSub?.cancel());
+    _readyDurationSub = null;
+    _readyPlayingSub = null;
   }
 
   /// Stores the source's subtitle tracks and auto-selects a sensible default.
@@ -555,11 +604,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Future<void> _recoverNative(String reason) async {
     debugPrint('[player] recover: $reason');
     _stopStallWatchdog();
+    _stopReadyWatch();
     final broken = _player;
     final brokenSub = _errorSub;
     setState(() {
       _player = null;
       _videoController = null;
+      _videoReady = false;
       _mode = _PlayerMode.loading;
     });
     _errorSub = null;
@@ -614,6 +665,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     if (name == _currentSourceName()) return;
     _hideTimer?.cancel();
     _stopStallWatchdog();
+    _stopReadyWatch();
     final broken = _player;
     final brokenSub = _errorSub;
     setState(() {
@@ -621,6 +673,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       _fallbackNotice = '';
       _player = null;
       _videoController = null;
+      _videoReady = false;
       _web = null;
       _mode = _PlayerMode.loading;
       _subtitles = const [];
@@ -809,7 +862,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   Widget _bottomControls(BuildContext context) {
     final player = _player;
-    if (_mode != _PlayerMode.native || player == null) {
+    if (_mode != _PlayerMode.native || player == null || !_videoReady) {
       return const SizedBox.shrink();
     }
     return Container(
@@ -858,7 +911,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   /// Big central transport cluster: rewind 10s, play/pause, forward 10s.
   Widget _centerControls(BuildContext context) {
     final player = _player;
-    if (_mode != _PlayerMode.native || player == null) {
+    if (_mode != _PlayerMode.native || player == null || !_videoReady) {
       return const SizedBox.shrink();
     }
     return Row(
@@ -1189,6 +1242,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
           child: Stack(
             children: [
               Positioned.fill(child: _buildPlayerArea()),
+              if (_mode == _PlayerMode.native && !_videoReady)
+                const Positioned.fill(
+                  child: IgnorePointer(
+                    child: Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    ),
+                  ),
+                ),
               if (_nativeFailed)
                 Positioned(
                   top: 10,
