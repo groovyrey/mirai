@@ -19,11 +19,11 @@ import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/embed_ad_guard.dart';
 
-/// Immersive full-screen player. Same source strategy as Kumi: direct-file
-/// sources are preferred, then the embed. For aniwaves the direct source is
-/// DoodStream (a real MP4, played natively with media_kit); when the worker can
-/// only hand back an embed page (echovideo / byse / challenge-gated DoodStream)
-/// playback falls back to the WebView embed with the ad layer stripped.
+/// Immersive full-screen player. Two sources: AniWatch's ZokoAnime server plays
+/// natively through media_kit (its VTT subtitle tracks are selectable), and
+/// DoodStream opens its embed page in the WebView with the ad layer stripped.
+/// There is no direct DoodStream MP4 path any more; the aniwaves resolver keeps
+/// its dood support for a future workaround.
 class PlayerScreen extends StatefulWidget {
   const PlayerScreen({
     super.key,
@@ -46,13 +46,12 @@ class PlayerScreen extends StatefulWidget {
   /// that server instead of the worker's default priority.
   final int? sv;
 
-  /// When true the player opens directly in the DoodStream embed instead of
-  /// attempting a direct native stream first.
+  /// When true the player opens directly in the DoodStream embed.
   final bool embed;
 
-  /// Which catalog resolves the episode: 'aniwaves' (default) or 'aniwatch'.
-  /// Carried across prev/next so switching to the aniwatch source survives
-  /// episode navigation.
+  /// Which catalog resolves the episode: 'aniwatch' (default, ZokoAnime native
+  /// HLS with subtitles) or 'aniwaves' (DoodStream embed). Carried across
+  /// prev/next so the source choice survives episode navigation.
   final String? sourceKind;
 
   /// Short label like "EP 05" shown under the title in the top bar.
@@ -86,8 +85,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
   int _nativeAttempts = 0;
 
   /// Which catalog the current playback came from. Drives the source sheet and
-  /// keeps the choice when navigating between episodes.
-  String _sourceKind = 'aniwaves';
+  /// keeps the choice when navigating between episodes. AniWatch's ZokoAnime
+  /// server is the primary/default source (native HLS with subtitles).
+  String _sourceKind = 'aniwatch';
 
   // Native watchdog: retries when the stream stalls instead of leaving the
   // clock frozen at 0:00 or mid-episode. Guarded by live playing state, so a
@@ -99,15 +99,22 @@ class _PlayerScreenState extends State<PlayerScreen> {
   bool _seenFirstProgress = false;
   String? _fatalMessage;
 
-  // Last successful resolution, kept so native recoveries can retry the same
-  // stream and embed fallbacks land on the real embed page.
-  ResolvedSource? _lastSource;
+  // The embed page the current resolution supplied, kept so failures fall back
+  // onto the real page instead of the generic watch URL.
   String? _lastEmbedUrl;
+
+  // Subtitle tracks shipped by the current source (aniwatch's ZokoAnime server
+  // publishes VTT tracks). The active URL drives the CC sheet's check mark.
+  List<ResolvedSubtitle> _subtitles = const [];
+  String? _activeSubtitleUrl;
 
   // Settings snapshot taken when the player opens.
   bool _hardwareDecode = false;
   double _defaultRate = 1.0;
   bool _keepAwake = true;
+  double _subtitleSize = 22;
+  Color _subtitleColor = Colors.white;
+  double _subtitleBackground = 0.5;
 
   // Resume / progress tracking.
   Duration? _resumePosition;
@@ -124,7 +131,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _hardwareDecode = app.hardwareDecode;
     _defaultRate = app.defaultSpeed;
     _keepAwake = app.keepAwake;
-    _sourceKind = widget.sourceKind ?? 'aniwaves';
+    _subtitleSize = app.subtitleSize;
+    _subtitleColor = app.subtitleColor.color;
+    _subtitleBackground = app.subtitleBackground;
+    _sourceKind = widget.sourceKind ?? 'aniwatch';
     unawaited(_loadResume());
     _start();
   }
@@ -271,58 +281,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
-  /// Native-first. The worker picks the best server for the episode: when
-  /// DoodStream resolves we get a real MP4 and play it with media_kit (the
-  /// mobile UA header is attached so the CDN streams it); otherwise the worker
-  /// hands back an embed page which we load in the WebView.
+  /// Resolves the selected source. AniWatch's ZokoAnime server plays natively
+  /// through media_kit; the DoodStream source opens its embed page in the
+  /// WebView. There is no direct DoodStream MP4 path any more.
   Future<void> _start() async {
     if (_sourceKind == 'aniwatch') {
       await _startAniwatch();
       return;
     }
-    setState(() => _mode = _PlayerMode.loading);
-    if (widget.embed) {
-      await _startWithEmbed();
-      return;
-    }
-    try {
-      final source = await _resolver.resolve(
-        widget.item,
-        widget.ep,
-        dub: widget.dub,
-        sv: widget.sv,
-        proxy: true,
-      );
-      if (!mounted) return;
-      _lastSource = source;
-      _lastEmbedUrl = source.embedUrl?.isNotEmpty == true
-          ? source.embedUrl
-          : (source.embedMode ? source.playUrl : null);
-      if (source.embedMode) {
-        if (await _tryPlayDoodClient(source)) return;
-        _startEmbedFallback(
-          'Direct playback wasn\'t possible for this title, so Mirai opened the embed player instead.',
-          url: _lastEmbedUrl,
-        );
-        return;
-      }
-      // The worker resolved a direct MP4 (proxied dood). That token is bound
-      // to the worker's IP and its CDN historically starves through the proxy,
-      // so when the original dood embed is available the MP4 is resolved from
-      // the phone instead, with the player streaming straight from dood's CDN.
-      if (await _tryPlayDoodClient(source)) return;
-      if (await _playNative(source)) return;
-      _startEmbedFallback(
-        'The direct stream couldn\'t be reached, so Mirai opened the embed player instead.',
-        url: _lastEmbedUrl,
-      );
-    } catch (_) {
-      if (!mounted) return;
-      _startEmbedFallback(
-        'The direct stream couldn\'t be reached, so Mirai opened the embed player instead.',
-        url: _lastEmbedUrl,
-      );
-    }
+    await _startWithEmbed();
   }
 
   /// Resolves through aniwatch.lu instead of aniwaves.
@@ -341,7 +308,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
         dub: widget.dub,
       );
       if (!mounted) return;
-      _lastSource = source;
       _lastEmbedUrl = _embedWrapUrl();
       if (await _playNative(source)) return;
       _startEmbedFallback(
@@ -360,59 +326,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
         'Aniwatch couldn\'t be reached, so Mirai opened the embed player instead.',
         url: _lastEmbedUrl,
       );
-    }
-  }
-
-  /// Attempts native playback of a dood source resolved directly on the phone
-  /// from the original embed wrapper, bypassing the proxied (and unreliable)
-  /// worker MP4. Only DoodStream qualifies.
-  Future<bool> _tryPlayDoodClient(ResolvedSource source) async {
-    if (source.provider != 'doodstream' && source.provider != 'dood') {
-      return false;
-    }
-    final direct = await _tryClientDoodNative(source);
-    if (direct == null) return false;
-    final started = await _playNative(direct);
-    return started;
-  }
-
-  /// Replays the last resolution, preferring a fresh phone-side dood token
-  /// before falling back to the worker's proxied MP4.
-  Future<bool> _retryFromLastSource() async {
-    final source = _lastSource;
-    if (source == null) return false;
-    if (await _tryPlayDoodClient(source)) return true;
-    if (source.embedMode) return false;
-    return _playNative(source);
-  }
-
-  /// The worker hands back a dood embed page when its own network can't pass
-  /// dood's challenge. A real device passes, so the direct MP4 is resolved
-  /// from the phone and played straight from dood's CDN (which blocks CF
-  /// egress) with a mobile UA header, no worker proxy in between.
-  Future<ResolvedSource?> _tryClientDoodNative(ResolvedSource source) async {
-    if (source.provider != 'doodstream' && source.provider != 'dood') {
-      return null;
-    }
-    try {
-      final mp4 = await _resolver.resolveDoodNative(
-        source.embedUrl ?? source.playUrl,
-        animeId: widget.item.id,
-        ep: widget.ep,
-      );
-      return ResolvedSource(
-        playUrl: mp4,
-        provider: 'doodstream',
-        quality: 'auto',
-        embedMode: false,
-        httpHeaders: {
-          'User-Agent': ResolverService.mobileUa,
-          'Referer': ResolverService.doodReferer,
-        },
-      );
-    } catch (error) {
-      debugPrint('[player] client dood native failed: $error');
-      return null;
     }
   }
 
@@ -500,23 +413,56 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
   }
 
-  /// Loads the resolved subtitle tracks into media_kit and turns the first one
-  /// on.
+  /// Stores the source's subtitle tracks and auto-selects a sensible default.
   ///
-  /// The worker only returns tracks for sources that publish them (aniwatch's
-  /// ZokoAnime server does; aniwaves hands back an MP4 with none), so this is
-  /// a no-op for most sources. Failures are swallowed: a missing or rejected
+  /// AniWatch's ZokoAnime server publishes VTT tracks; aniwaves hands back an
+  /// MP4 with none, so this is a no-op there. The first English track wins,
+  /// otherwise the first listed. Failures are swallowed: a missing or rejected
   /// track must never take playback down.
   Future<void> _attachSubtitles(Player player, ResolvedSource source) async {
-    final tracks = source.subtitles;
-    if (tracks == null || tracks.isEmpty) return;
+    final tracks = source.subtitles ?? const <ResolvedSubtitle>[];
+    if (!mounted) return;
+    setState(() {
+      _subtitles = tracks;
+      _activeSubtitleUrl = null;
+    });
+    if (tracks.isEmpty) return;
+    await _applySubtitle(player, _defaultSubtitle(tracks), force: true);
+  }
+
+  ResolvedSubtitle _defaultSubtitle(List<ResolvedSubtitle> tracks) {
+    for (final track in tracks) {
+      final label = track.label.toLowerCase();
+      if (label.contains('english') || label == 'en') return track;
+    }
+    return tracks.first;
+  }
+
+  /// Applies [track] to the player and records it as active. [force] re-applies
+  /// even when the track is already active (used for the initial auto-select).
+  Future<void> _applySubtitle(
+    Player player,
+    ResolvedSubtitle track, {
+    bool force = false,
+  }) async {
+    if (!force && _activeSubtitleUrl == track.url) return;
     try {
       await player.setSubtitleTrack(
-        SubtitleTrack.uri(tracks.first.url, title: tracks.first.label),
+        SubtitleTrack.uri(track.url, title: track.label),
       );
+      if (mounted) setState(() => _activeSubtitleUrl = track.url);
     } catch (error) {
       debugPrint('[player] subtitle track failed: $error');
     }
+  }
+
+  Future<void> _clearSubtitle(Player player) async {
+    try {
+      await player.setSubtitleTrack(SubtitleTrack.no());
+    } catch (error) {
+      debugPrint('[player] subtitle off failed: $error');
+    }
+    if (mounted) setState(() => _activeSubtitleUrl = null);
   }
 
   /// Polls the player every 3s. Two failure modes are caught:
@@ -630,13 +576,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
       await _startAniwatch();
       return;
     }
-    if (_nativeAttempts < 2) {
-      final retried = await _retryFromLastSource();
-      if (!mounted) return;
-      if (retried) return;
-    }
     _startEmbedFallback(
-      'The direct stream kept dropping, so Mirai opened the embed player instead.',
+      'The stream kept dropping, so Mirai opened the embed player instead.',
       url: _lastEmbedUrl,
     );
   }
@@ -664,14 +605,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
   /// The source currently on screen, used to highlight the sheet item.
   String? _currentSourceName() {
     if (_mode == _PlayerMode.embed) return 'embed';
-    if (_mode == _PlayerMode.native) {
-      return _sourceKind == 'aniwatch' ? 'aniwatch' : 'doodstream';
-    }
+    if (_mode == _PlayerMode.native) return 'aniwatch';
     return null;
   }
 
-  /// Switches between the direct DoodStream player, the aniwatch source, and
-  /// the embed player.
+  /// Switches between the aniwatch source (ZokoAnime) and the DoodStream embed.
   void _switchSource(String name) {
     if (name == _currentSourceName()) return;
     _hideTimer?.cancel();
@@ -685,21 +623,22 @@ class _PlayerScreenState extends State<PlayerScreen> {
       _videoController = null;
       _web = null;
       _mode = _PlayerMode.loading;
+      _subtitles = const [];
+      _activeSubtitleUrl = null;
     });
     _errorSub = null;
-    _lastSource = null;
     _lastEmbedUrl = null;
     unawaited(brokenSub?.cancel());
     unawaited(broken?.dispose());
     _nativeAttempts = 0;
     if (name == 'embed') {
       // Ask the worker for an embed explicitly so we get the actual player
-      // page (echovideo / byse) instead of the dood stream again.
+      // page (echovideo / byse) for the DoodStream source.
       _sourceKind = 'aniwaves';
       unawaited(_startWithEmbed());
     } else {
-      _sourceKind = name == 'aniwatch' ? 'aniwatch' : 'aniwaves';
-      unawaited(_start());
+      _sourceKind = 'aniwatch';
+      unawaited(_startAniwatch());
     }
   }
 
@@ -714,18 +653,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
         embed: true,
       );
       if (!mounted) return;
-      _lastSource = source;
       _lastEmbedUrl = source.embedUrl?.isNotEmpty == true
           ? source.embedUrl
           : source.playUrl;
-      if (source.embedMode) {
-        if (await _tryPlayDoodClient(source)) return;
-        _startEmbedFallback(null, url: _lastEmbedUrl);
-      } else {
-        // Shouldn't happen with embed:true, but never surprise the user.
-        if (await _playNative(source)) return;
-        _startEmbedFallback(null, url: _lastEmbedUrl);
-      }
+      _startEmbedFallback(null, url: _lastEmbedUrl);
     } catch (_) {
       if (!mounted) return;
       _startEmbedFallback(null, url: _lastEmbedUrl);
@@ -736,18 +667,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final current = _currentSourceName();
     final items = <({String name, String label, bool current})>[
       (
-        name: 'doodstream',
-        label: 'Direct · DoodStream',
-        current: current == 'doodstream',
-      ),
-      (
         name: 'aniwatch',
-        label: 'AniWatch · ZokoAnime',
+        label: 'ZokoAnime · primary',
         current: current == 'aniwatch',
       ),
       (
         name: 'embed',
-        label: 'Embed player',
+        label: 'DoodStream · embed',
         current: current == 'embed',
       ),
     ];
@@ -912,9 +838,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
           Row(
             children: [
               _speedButton(context, player),
+              const SizedBox(width: 4),
+              _subtitleButton(context, player),
               const Spacer(),
               Text(
-                'DOODSTREAM',
+                _sourceLabel,
                 style: context.appTextTheme.labelMedium?.copyWith(
                   color: Colors.white38,
                   letterSpacing: 1.2,
@@ -1115,6 +1043,111 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
+  /// Provider label shown at the right of the control bar.
+  String get _sourceLabel {
+    if (_sourceKind == 'aniwatch') return 'ZOKOANIME';
+    return 'DOODSTREAM';
+  }
+
+  /// 'CC' button; only shown when the current source ships subtitle tracks.
+  Widget _subtitleButton(BuildContext context, Player player) {
+    if (_subtitles.isEmpty) return const SizedBox.shrink();
+    return InkWell(
+      onTap: () => _showSubtitleSheet(context, player),
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Text(
+          'CC',
+          style: context.appTextTheme.labelMedium?.copyWith(
+            color: Colors.white70,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Subtitle picker mirroring Kumi's player: an Off row plus one row per
+  /// track, with a check on the active selection.
+  void _showSubtitleSheet(BuildContext context, Player player) {
+    final items = <({bool isOff, String label, ResolvedSubtitle? track})>[
+      (isOff: true, label: 'Off', track: null),
+      for (final track in _subtitles)
+        (isOff: false, label: track.label, track: track),
+    ];
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: context.appSurface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(sheetContext).size.height * 0.65,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Subtitles',
+                    style: context.appTextTheme.titleMedium?.copyWith(
+                      color: context.appOnSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.only(bottom: 4),
+                  children: [
+                    for (final item in items)
+                      ListTile(
+                        title: Text(
+                          item.label,
+                          style: context.appTextTheme.bodyMedium?.copyWith(
+                            color: context.appOnSurface,
+                          ),
+                        ),
+                        trailing: _activeSubtitleUrl == null && item.isOff
+                            ? Icon(PhosphorIcons.check(),
+                                color: context.appAccent)
+                            : (item.track != null &&
+                                    item.track!.url == _activeSubtitleUrl)
+                                ? Icon(PhosphorIcons.check(),
+                                    color: context.appAccent)
+                                : null,
+                        onTap: () {
+                          Navigator.pop(sheetContext);
+                          final track = item.track;
+                          if (track == null) {
+                            unawaited(_clearSubtitle(player));
+                          } else {
+                            unawaited(
+                                _applySubtitle(player, track, force: true));
+                          }
+                        },
+                      ),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _videoBody() {
     final player = _player;
     final controller = _videoController;
@@ -1129,6 +1162,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
         controls: NoVideoControls,
         fit: BoxFit.contain,
         fill: const Color(0xFF000000),
+        subtitleViewConfiguration: SubtitleViewConfiguration(
+          style: TextStyle(
+            fontSize: _subtitleSize,
+            height: 1.3,
+            fontWeight: FontWeight.w600,
+            color: _subtitleColor,
+            backgroundColor:
+                Colors.black.withValues(alpha: _subtitleBackground),
+          ),
+          textAlign: TextAlign.center,
+          padding: const EdgeInsets.all(24),
+        ),
       ),
     );
   }
@@ -1257,7 +1302,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
               FilledButton.icon(
                 onPressed: () {
                   _nativeAttempts = 0;
-                  _lastSource = null;
                   _lastEmbedUrl = null;
                   _fatalMessage = null;
                   setState(() => _mode = _PlayerMode.loading);

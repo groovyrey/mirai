@@ -116,6 +116,35 @@ class SettingsScreen extends StatelessWidget {
             onTap: () => _pickChannel(context, state),
           ),
           Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+            child: SectionLabel(text: 'SUBTITLES'),
+          ),
+          _SliderTile(
+            title: 'Text size',
+            value: state.subtitleSize,
+            min: 14,
+            max: 34,
+            divisions: 10,
+            label: '${state.subtitleSize.round()}',
+            onChanged: state.setSubtitleSize,
+          ),
+          _Select(
+            title: 'Text color',
+            value: state.subtitleColor.label,
+            onTap: () => _pickSubtitleColor(context, state),
+          ),
+          _SliderTile(
+            title: 'Background',
+            value: state.subtitleBackground,
+            min: 0,
+            max: 0.9,
+            divisions: 6,
+            label: state.subtitleBackground == 0
+                ? 'Off'
+                : '${(state.subtitleBackground * 100).round()}%',
+            onChanged: state.setSubtitleBackground,
+          ),
+          Padding(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
             child: SectionLabel(text: 'ACCOUNT & DATA'),
           ),
@@ -229,6 +258,41 @@ class SettingsScreen extends StatelessWidget {
       ),
     );
     if (choice != null) await state.setAudioMode(choice);
+  }
+
+  Future<void> _pickSubtitleColor(BuildContext context, AppState state) async {
+    final choice = await showModalBottomSheet<SubtitleColor>(
+      context: context,
+      backgroundColor: context.appSurface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final color in SubtitleColor.values)
+              ListTile(
+                leading: Container(
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: color.color,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: context.appOutline),
+                  ),
+                ),
+                title: Text(color.label),
+                trailing: state.subtitleColor == color
+                    ? Icon(Icons.check_rounded, color: context.appAccent)
+                    : null,
+                onTap: () => Navigator.pop(context, color),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (choice != null) await state.setSubtitleColor(choice);
   }
 
   Future<void> _pickChannel(BuildContext context, AppState state) async {

@@ -17,6 +17,18 @@ enum UpdateChannel {
   final String label;
 }
 
+/// Subtitle text colours offered in Settings.
+enum SubtitleColor {
+  white('White', Color(0xFFFFFFFF)),
+  yellow('Yellow', Color(0xFFFFEB3B)),
+  cyan('Cyan', Color(0xFF80DEEA)),
+  green('Green', Color(0xFFB9F6CA));
+
+  const SubtitleColor(this.label, this.color);
+  final String label;
+  final Color color;
+}
+
 class AppState extends ChangeNotifier {
   static const _themeModeKey = 'theme_mode';
   static const _autoCheckKey = 'auto_check_updates';
@@ -27,6 +39,9 @@ class AppState extends ChangeNotifier {
   static const _audioModeKey = 'audio_mode';
   static const _resolverOverrideKey = 'resolver_base_override';
   static const _preferredSvKey = 'preferred_source_v1';
+  static const _subtitleSizeKey = 'subtitle_size';
+  static const _subtitleColorKey = 'subtitle_color';
+  static const _subtitleBgKey = 'subtitle_background';
 
   static const _settingsKeys = [
     _themeModeKey,
@@ -38,6 +53,9 @@ class AppState extends ChangeNotifier {
     _audioModeKey,
     _resolverOverrideKey,
     _preferredSvKey,
+    _subtitleSizeKey,
+    _subtitleColorKey,
+    _subtitleBgKey,
   ];
 
   ThemeMode _themeMode = ThemeMode.system;
@@ -49,6 +67,9 @@ class AppState extends ChangeNotifier {
   AudioMode _audioMode = AudioMode.sub;
   String _resolverOverride = '';
   final Map<String, int> _preferredSv = <String, int>{};
+  double _subtitleSize = 22;
+  SubtitleColor _subtitleColor = SubtitleColor.white;
+  double _subtitleBackground = 0.5;
 
   ThemeMode get themeMode => _themeMode;
   bool get autoCheckUpdates => _autoCheckUpdates;
@@ -58,6 +79,9 @@ class AppState extends ChangeNotifier {
   double get defaultSpeed => _defaultSpeed;
   AudioMode get audioMode => _audioMode;
   String get resolverOverride => _resolverOverride;
+  double get subtitleSize => _subtitleSize;
+  SubtitleColor get subtitleColor => _subtitleColor;
+  double get subtitleBackground => _subtitleBackground;
 
   /// The server the user pinned for a given anime id, if any.
   int? preferredSv(String animeId) => _preferredSv[animeId];
@@ -83,6 +107,14 @@ class AppState extends ChangeNotifier {
         : AudioMode.sub;
     _resolverOverride = prefs.getString(_resolverOverrideKey) ?? '';
     AppConfig.aniwavesBaseOverride = _resolverOverride;
+    _subtitleSize =
+        (prefs.getDouble(_subtitleSizeKey) ?? 22).clamp(14, 34).toDouble();
+    _subtitleColor = SubtitleColor.values.firstWhere(
+      (value) => value.name == prefs.getString(_subtitleColorKey),
+      orElse: () => SubtitleColor.white,
+    );
+    _subtitleBackground =
+        (prefs.getDouble(_subtitleBgKey) ?? 0.5).clamp(0.0, 0.9).toDouble();
     final rawSvPrefs = prefs.getString(_preferredSvKey);
     if (rawSvPrefs != null && rawSvPrefs.isNotEmpty) {
       try {
@@ -182,6 +214,27 @@ class AppState extends ChangeNotifier {
     await prefs.setString(_preferredSvKey, jsonEncode(_preferredSv));
   }
 
+  Future<void> setSubtitleSize(double size) async {
+    _subtitleSize = size.clamp(14, 34).toDouble();
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_subtitleSizeKey, _subtitleSize);
+  }
+
+  Future<void> setSubtitleColor(SubtitleColor color) async {
+    _subtitleColor = color;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_subtitleColorKey, color.name);
+  }
+
+  Future<void> setSubtitleBackground(double opacity) async {
+    _subtitleBackground = opacity.clamp(0.0, 0.9).toDouble();
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_subtitleBgKey, _subtitleBackground);
+  }
+
   Future<void> resetAll() async {
     final prefs = await SharedPreferences.getInstance();
     for (final key in _settingsKeys) {
@@ -196,6 +249,9 @@ class AppState extends ChangeNotifier {
     _audioMode = AudioMode.sub;
     _resolverOverride = '';
     _preferredSv.clear();
+    _subtitleSize = 22;
+    _subtitleColor = SubtitleColor.white;
+    _subtitleBackground = 0.5;
     AppConfig.aniwavesBaseOverride = '';
     notifyListeners();
   }

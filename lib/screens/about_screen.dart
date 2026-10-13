@@ -44,21 +44,15 @@ class AboutScreen extends StatelessWidget {
 
   static final _sources = [
     (
+      Icons.hd_rounded,
+      'ZokoAnime',
+      'Primary source. Native HLS with subtitles',
+      'PRIMARY',
+    ),
+    (
       Icons.play_circle_outline_rounded,
       'DoodStream',
-      'Primary native source',
-      'NATIVE',
-    ),
-    (
-      Icons.hd_rounded,
-      'AniWatch',
-      'ZokoAnime mirror with subtitles, switchable per episode',
-      'NATIVE',
-    ),
-    (
-      Icons.language_rounded,
-      'Embed player',
-      'Full-page fallback when a direct stream is down',
+      'Opens in the embed player, switchable per title',
       'EMBED',
     ),
   ];

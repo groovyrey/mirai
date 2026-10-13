@@ -11,6 +11,16 @@ import '../widgets/anime_card.dart';
 import '../widgets/next_episode_countdown.dart';
 import 'player_screen.dart';
 
+/// The two playback sources offered for a title. ZokoAnime (AniWatch's mirror)
+/// plays natively through media_kit and is the primary/default; DoodStream is
+/// served through its embed page only.
+enum _PlaySource { zoko, doodEmbed }
+
+/// Maps a persisted source preference (0 = DoodStream embed, anything else or
+/// unset = ZokoAnime) onto the source enum. ZokoAnime is the default.
+_PlaySource _sourceForSv(int? sv) =>
+    sv == 0 ? _PlaySource.doodEmbed : _PlaySource.zoko;
+
 class DetailScreen extends StatefulWidget {
   const DetailScreen({
     super.key,
@@ -78,7 +88,7 @@ class _DetailScreenState extends State<DetailScreen> {
             final app = context.read<AppState>();
             final pref = app.preferredSv(widget.item.id.toString());
             _play(context, widget.item, targetEp, dub,
-                sv: 2, embed: pref == 0);
+                source: _sourceForSv(pref));
           }
         }
         return;
@@ -203,7 +213,7 @@ class _DetailScreenState extends State<DetailScreen> {
                   hasDub: hasDub,
                   defaultDub: defaultDub,
                   onTap: (dub) => _play(context, item, episodes[index], dub,
-                      sv: 2, embed: prefSv == 0),
+                      source: _sourceForSv(prefSv)),
                 );
               },
             ),
@@ -403,15 +413,15 @@ class _DetailScreenState extends State<DetailScreen> {
                 _sourceChip(
                   context,
                   item,
-                  embed: false,
-                  label: 'DoodStream',
+                  source: _PlaySource.zoko,
+                  label: 'ZokoAnime',
                   active: prefSv != 0,
                 ),
                 _sourceChip(
                   context,
                   item,
-                  embed: true,
-                  label: 'Embed',
+                  source: _PlaySource.doodEmbed,
+                  label: 'DoodStream',
                   active: prefSv == 0,
                 ),
               ],
@@ -478,12 +488,12 @@ class _DetailScreenState extends State<DetailScreen> {
   Widget _sourceChip(
     BuildContext context,
     AnimeItem item, {
-    required bool embed,
+    required _PlaySource source,
     required String label,
     required bool active,
   }) {
     return GestureDetector(
-      onTap: () => _selectSource(context, item, embed),
+      onTap: () => _selectSource(context, item, source),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
@@ -516,15 +526,17 @@ class _DetailScreenState extends State<DetailScreen> {
     );
   }
 
-  /// Pins the source choice for this anime (2 = DoodStream native, 0 = embed)
-  /// and plays the first available episode so the choice is immediately felt.
-  void _selectSource(BuildContext context, AnimeItem item, bool embed) {
+  /// Pins the source choice for this anime (0 = DoodStream embed, unset / 1 =
+  /// ZokoAnime native) and plays the first available episode so the choice is
+  /// immediately felt.
+  void _selectSource(BuildContext context, AnimeItem item, _PlaySource source) {
     final app = context.read<AppState>();
-    app.setPreferredSv(item.id.toString(), embed ? 0 : 2);
+    final embed = source == _PlaySource.doodEmbed;
+    app.setPreferredSv(item.id.toString(), embed ? 0 : 1);
     final episodes = _detail!.episodes;
     if (episodes.isEmpty) return;
     _play(context, item, episodes.first, app.audioMode == AudioMode.dub,
-        sv: 2, embed: embed);
+        source: source);
   }
 
   IconData _statusIcon(String status) {
@@ -553,17 +565,18 @@ class _DetailScreenState extends State<DetailScreen> {
     AnimeItem item,
     Episode episode,
     bool dub, {
-    int? sv,
-    bool embed = false,
+    _PlaySource source = _PlaySource.zoko,
   }) {
+    final embed = source == _PlaySource.doodEmbed;
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => PlayerScreen(
           item: item,
           ep: episode.ep,
           dub: dub,
-          sv: sv,
+          sv: embed ? 2 : null,
           embed: embed,
+          sourceKind: embed ? 'aniwaves' : 'aniwatch',
           subtitle: 'EP ${episode.ep}',
           episodes: _detail?.episodes,
         ),
@@ -595,7 +608,7 @@ class _DetailScreenState extends State<DetailScreen> {
         onPlay: (episode, dub) {
           Navigator.pop(sheetContext);
           _play(context, detail.item, episode, dub,
-              sv: 2, embed: prefSv == 0);
+              source: _sourceForSv(prefSv));
         },
       ),
     );
