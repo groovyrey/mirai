@@ -144,6 +144,15 @@ class _SavedBodyState extends State<_SavedBody> {
   }
 }
 
+/// Formats a resume position as MM:SS (or H:MM:SS past an hour).
+String _formatLeftOff(int milliseconds) {
+  final d = Duration(milliseconds: milliseconds);
+  final h = d.inHours;
+  final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+  final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+  return h > 0 ? '$h:$m:$s' : '$m:$s';
+}
+
 class _ContinueTile extends StatelessWidget {
   const _ContinueTile({required this.entry, required this.onTap});
 
@@ -194,6 +203,14 @@ class _ContinueTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
+            Text(
+              _formatLeftOff(entry.resumePosition),
+              style: context.appTextTheme.labelSmall?.copyWith(
+                color: context.appOnSurfaceVariant,
+                fontSize: 11,
+              ),
+            ),
+            const SizedBox(width: 8),
             Icon(Icons.play_circle_outline_rounded,
                 color: context.appOnSurfaceVariant),
           ],

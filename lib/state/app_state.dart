@@ -108,7 +108,7 @@ class AppState extends ChangeNotifier {
     _resolverOverride = prefs.getString(_resolverOverrideKey) ?? '';
     AppConfig.aniwavesBaseOverride = _resolverOverride;
     _subtitleSize =
-        (prefs.getDouble(_subtitleSizeKey) ?? 22).clamp(14, 34).toDouble();
+        (prefs.getDouble(_subtitleSizeKey) ?? 22).clamp(14, 72).toDouble();
     _subtitleColor = SubtitleColor.values.firstWhere(
       (value) => value.name == prefs.getString(_subtitleColorKey),
       orElse: () => SubtitleColor.white,
@@ -215,7 +215,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> setSubtitleSize(double size) async {
-    _subtitleSize = size.clamp(14, 34).toDouble();
+    _subtitleSize = size.clamp(14, 72).toDouble();
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble(_subtitleSizeKey, _subtitleSize);

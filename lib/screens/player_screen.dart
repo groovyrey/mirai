@@ -227,8 +227,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
   String _embedWrapUrl() =>
       aniwavesEmbedUrl(id: widget.item.id, slug: widget.item.slug, ep: widget.ep);
 
-  bool get _hasNeighborData => widget.episodes != null && widget.episodes!.isNotEmpty;
-
   Episode? get _prevEpisode => _neighborEpisode(-1);
 
   Episode? get _nextEpisode => _neighborEpisode(1);
@@ -283,15 +281,35 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   Widget _episodeNavButton(
     BuildContext context, {
-    required bool enabled,
     required VoidCallback onTap,
     required IconData icon,
     required String tooltip,
+    required String label,
   }) {
-    return IconButton(
-      onPressed: enabled ? onTap : null,
-      tooltip: tooltip,
-      icon: Icon(icon, color: enabled ? Colors.white : Colors.white24, size: 26),
+    return Tooltip(
+      message: tooltip,
+      child: InkResponse(
+        onTap: onTap,
+        radius: 30,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: Colors.white, size: 34),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: context.appTextTheme.labelSmall?.copyWith(
+                  color: Colors.white70,
+                  fontSize: 10,
+                  letterSpacing: 0.6,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -973,15 +991,27 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
-  /// Big central transport cluster: rewind 10s, play/pause, forward 10s.
+  /// Big central transport cluster: previous episode, rewind 10s, play/pause,
+  /// forward 10s, next episode. The episode buttons only appear when a neighbor
+  /// exists.
   Widget _centerControls(BuildContext context) {
     final player = _player;
     if (_mode != _PlayerMode.native || player == null || !_videoReady) {
       return const SizedBox.shrink();
     }
+    final prev = _prevEpisode;
+    final next = _nextEpisode;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (prev != null)
+          _episodeNavButton(
+            context,
+            onTap: () => _openEpisode(prev),
+            icon: Icons.skip_previous_rounded,
+            tooltip: 'Previous episode',
+            label: 'EP ${prev.ep}',
+          ),
         IconButton(
           padding: const EdgeInsets.all(10),
           iconSize: 40,
@@ -1003,6 +1033,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
           },
           icon: Icon(Icons.forward_10, color: Colors.white),
         ),
+        if (next != null)
+          _episodeNavButton(
+            context,
+            onTap: () => _openEpisode(next),
+            icon: Icons.skip_next_rounded,
+            tooltip: 'Next episode',
+            label: 'EP ${next.ep}',
+          ),
       ],
     );
   }
@@ -1345,7 +1383,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   child: AnimatedOpacity(
                     opacity: _controlsVisible ? 1 : 0,
                     duration: const Duration(milliseconds: 200),
-                    child: Center(child: _centerControls(context)),
+                    child: Center(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: _centerControls(context),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -1520,22 +1563,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
               ],
             ),
           ),
-          if (_hasNeighborData) ...[
-            _episodeNavButton(
-              context,
-              enabled: _prevEpisode != null,
-              onTap: () => _openEpisode(_prevEpisode!),
-              icon: Icons.skip_previous_rounded,
-              tooltip: 'Previous episode',
-            ),
-            _episodeNavButton(
-              context,
-              enabled: _nextEpisode != null,
-              onTap: () => _openEpisode(_nextEpisode!),
-              icon: Icons.skip_next_rounded,
-              tooltip: 'Next episode',
-            ),
-          ],
           IconButton(
             onPressed: () => _showSourceSheet(context),
             tooltip: 'Switch source',

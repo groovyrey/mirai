@@ -101,11 +101,13 @@ class SectionLabel extends StatelessWidget {
     required this.text,
     this.onMore,
     this.moreLabel = 'VIEW ALL',
+    this.moreIcon,
   });
 
   final String text;
   final VoidCallback? onMore;
   final String moreLabel;
+  final IconData? moreIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -131,12 +133,25 @@ class SectionLabel extends StatelessWidget {
         if (onMore != null)
           GestureDetector(
             onTap: onMore,
-            child: Text(
-              moreLabel,
-              style: context.appTextTheme.labelSmall?.copyWith(
-                fontSize: 10,
-                color: context.appOnSurfaceVariant,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (moreIcon != null) ...[
+                  Icon(
+                    moreIcon,
+                    size: 14,
+                    color: context.appOnSurfaceVariant,
+                  ),
+                  const SizedBox(width: 4),
+                ],
+                Text(
+                  moreLabel,
+                  style: context.appTextTheme.labelSmall?.copyWith(
+                    fontSize: 10,
+                    color: context.appOnSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
           ),
       ],

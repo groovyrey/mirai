@@ -8,6 +8,7 @@ import '../services/watch_history.dart';
 import '../theme/app_theme.dart';
 import '../widgets/anime_card.dart';
 import 'detail_screen.dart';
+import 'player_screen.dart';
 import 'trending_screen.dart';
 
 /// Home = the "tonight" signal row (top trending) framed by secondary rails.
@@ -223,12 +224,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 width: 132,
                 child: _ContinueCard(
                   entry: entry,
-                  onTap: () => _openDetail(
-                    context,
-                    entry.item,
-                    ep: entry.ep,
-                    dub: entry.dub,
-                  ),
+                  onTap: () => _resume(context, entry),
                 ),
               );
             },
@@ -258,18 +254,11 @@ class _HomeScreenState extends State<HomeScreen> {
             itemBuilder: (context, i) {
               final entry = entries[i];
               final detail = entry.detail;
-              final nextEp = detail.nextEpisode;
               return SizedBox(
                 width: 132,
                 child: _QueueCard(
                   detail: detail,
-                  nextEp: nextEp,
-                  onTap: () => _openDetail(
-                    context,
-                    detail.item,
-                    ep: nextEp?.ep ?? 1,
-                    dub: false,
-                  ),
+                  onTap: () => _openDetail(context, detail.item),
                 ),
               );
             },
@@ -340,6 +329,30 @@ class _HomeScreenState extends State<HomeScreen> {
           item: item,
           initialEp: ep,
           initialDub: dub,
+        ),
+      ),
+    );
+  }
+
+  /// Resumes the last watched episode exactly where it stopped, going straight
+  /// to the player rather than routing through the info page.
+  void _resume(BuildContext context, HistoryEntry entry) {
+    AnimeDetail? detail;
+    for (final saved in _saved.entries) {
+      if (saved.detail.item.id == entry.item.id) {
+        detail = saved.detail;
+        break;
+      }
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PlayerScreen(
+          item: entry.item,
+          ep: entry.ep,
+          dub: entry.dub,
+          subtitle: 'EP ${entry.ep}',
+          initialPosition: Duration(milliseconds: entry.resumePosition),
+          episodes: detail?.episodes,
         ),
       ),
     );
@@ -461,16 +474,16 @@ class _ContinueCard extends StatelessWidget {
 class _QueueCard extends StatelessWidget {
   const _QueueCard({
     required this.detail,
-    required this.nextEp,
     required this.onTap,
   });
 
   final AnimeDetail detail;
-  final Episode? nextEp;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final eps =
+        detail.totalEps > 0 ? detail.totalEps : detail.episodes.length;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -479,19 +492,39 @@ class _QueueCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AspectRatio(
-              aspectRatio: 2 / 3,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(AppRadius.card),
-                child: CachedNetworkImage(
-                  imageUrl: detail.item.image ?? '',
-                  fit: BoxFit.cover,
-                  filterQuality: FilterQuality.high,
-                  errorWidget: (_, __, ___) => Container(
-                    color: context.appSurfaceVariant,
+            Stack(
+              children: [
+                AspectRatio(
+                  aspectRatio: 2 / 3,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(AppRadius.card),
+                    child: CachedNetworkImage(
+                      imageUrl: detail.item.image ?? '',
+                      fit: BoxFit.cover,
+                      filterQuality: FilterQuality.high,
+                      errorWidget: (_, __, ___) => Container(
+                        color: context.appSurfaceVariant,
+                      ),
+                    ),
                   ),
                 ),
-              ),
+                if (eps > 0)
+                  Positioned(
+                    left: 8,
+                    bottom: 8,
+                    child: Text(
+                      '$eps EPS',
+                      style: context.appTextTheme.labelSmall?.copyWith(
+                        color: Colors.white,
+                        fontSize: 11,
+                        letterSpacing: 0.6,
+                        shadows: const [
+                          Shadow(color: Colors.black, blurRadius: 6),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 8),
             Text(
@@ -502,16 +535,6 @@ class _QueueCard extends StatelessWidget {
                 color: context.appOnSurface,
               ),
             ),
-            if (nextEp != null) ...[
-              const SizedBox(height: 2),
-              Text(
-                'Next: EP ${nextEp!.ep}${nextEp!.dub ? ' DUB' : ' SUB'}',
-                style: context.appTextTheme.labelSmall?.copyWith(
-                  color: context.appAccent,
-                  fontSize: 10,
-                ),
-              ),
-            ],
           ],
         ),
       ),

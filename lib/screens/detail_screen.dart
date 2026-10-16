@@ -173,9 +173,10 @@ class _DetailScreenState extends State<DetailScreen> {
             child: SectionLabel(
               text: 'EPISODES',
               onMore: episodes.length > 12
-                  ? () => _showEpisodeLocator(context)
+                  ? () => _showEpisodeSearch(context)
                   : null,
-              moreLabel: 'LOCATE',
+              moreLabel: 'SEARCH',
+              moreIcon: Icons.search_rounded,
             ),
           ),
         ),
@@ -583,9 +584,9 @@ class _DetailScreenState extends State<DetailScreen> {
     );
   }
 
-  /// Opens a searchable sheet that locates episodes by number, handy for
+  /// Opens a searchable sheet that finds episodes by number, handy for
   /// titles with hundreds of episodes (One Piece, Detective Conan, ...).
-  void _showEpisodeLocator(BuildContext context) {
+  void _showEpisodeSearch(BuildContext context) {
     final detail = _detail;
     if (detail == null || detail.episodes.isEmpty) return;
     final app = context.read<AppState>();
@@ -599,7 +600,7 @@ class _DetailScreenState extends State<DetailScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (sheetContext) => _EpisodeLocatorSheet(
+      builder: (sheetContext) => _EpisodeSearchSheet(
         item: detail.item,
         episodes: detail.episodes,
         hasDub: hasDub,
@@ -742,8 +743,8 @@ if (subActive) ...[
 /// Searchable episode list for long-run titles. Typing a number narrows the
 /// list to episodes whose number contains the typed digits; tapping one plays
 /// it directly with the current audio settings.
-class _EpisodeLocatorSheet extends StatefulWidget {
-  const _EpisodeLocatorSheet({
+class _EpisodeSearchSheet extends StatefulWidget {
+  const _EpisodeSearchSheet({
     required this.item,
     required this.episodes,
     required this.hasDub,
@@ -758,10 +759,10 @@ class _EpisodeLocatorSheet extends StatefulWidget {
   final void Function(Episode episode, bool dub) onPlay;
 
   @override
-  State<_EpisodeLocatorSheet> createState() => _EpisodeLocatorSheetState();
+  State<_EpisodeSearchSheet> createState() => _EpisodeSearchSheetState();
 }
 
-class _EpisodeLocatorSheetState extends State<_EpisodeLocatorSheet> {
+class _EpisodeSearchSheetState extends State<_EpisodeSearchSheet> {
   late final TextEditingController _controller;
 
   @override
@@ -801,7 +802,7 @@ class _EpisodeLocatorSheetState extends State<_EpisodeLocatorSheet> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'LOCATE EPISODE',
+                      'SEARCH EPISODE',
                       style: context.appTextTheme.titleMedium?.copyWith(
                         color: context.appOnSurface,
                         fontWeight: FontWeight.w600,
