@@ -145,8 +145,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _subtitleColor = app.subtitleColor.color;
     _subtitleBackground = app.subtitleBackground;
     _sourceKind = widget.sourceKind ?? 'aniwatch';
-    unawaited(_loadResume());
-    _start();
+    unawaited(_bootstrap());
+  }
+
+  /// Restores the saved position first, then starts playback. Loading the
+  /// resume point before resolving the stream keeps a cold open from racing
+  /// ahead of the history read and starting at 0:00.
+  Future<void> _bootstrap() async {
+    await _loadResume();
+    if (!mounted) return;
+    await _start();
   }
 
   Future<void> _loadResume() async {
@@ -199,28 +207,34 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
-  /// Seeks to the saved position once the video is actually playing. Waiting
-  /// on `playing` avoids seeking while the buffer is still warming up, and an
-  /// earlier manual seek near the start is never overridden.
+  /// Seeks to the saved position once the stream reports a real duration and is
+  /// actually playing, so the seek lands instead of being dropped while the
+  /// demuxer is still warming up. Falls back to a plain seek after a timeout.
   Future<void> _seekAfterOpen(Player player) async {
     final resume = _resumePosition;
     if (resume == null || resume <= const Duration(seconds: 5)) return;
-    final playing = Completer<void>();
-    late final StreamSubscription<bool> sub;
-    sub = player.stream.playing.listen((value) {
-      if (value && !playing.isCompleted) playing.complete();
-    });
+    final ready = Completer<void>();
+    void check() {
+      if (ready.isCompleted) return;
+      if (player.state.duration > Duration.zero && player.state.playing) {
+        ready.complete();
+      }
+    }
+    final durationSub = player.stream.duration.listen((_) => check());
+    final playingSub = player.stream.playing.listen((_) => check());
+    check();
     try {
       await Future.any<void>([
-        playing.future,
-        Future<void>.delayed(const Duration(seconds: 3)),
+        ready.future,
+        Future<void>.delayed(const Duration(seconds: 10)),
       ]);
     } finally {
-      await sub.cancel();
+      await durationSub.cancel();
+      await playingSub.cancel();
     }
     if (!mounted || !identical(_player, player)) return;
     if (player.state.position < const Duration(seconds: 8)) {
-      player.seek(resume);
+      await player.seek(resume);
     }
   }
 
@@ -1001,47 +1015,54 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
     final prev = _prevEpisode;
     final next = _nextEpisode;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (prev != null)
-          _episodeNavButton(
-            context,
-            onTap: () => _openEpisode(prev),
-            icon: Icons.skip_previous_rounded,
-            tooltip: 'Previous episode',
-            label: 'EP ${prev.ep}',
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (prev != null)
+            _episodeNavButton(
+              context,
+              onTap: () => _openEpisode(prev),
+              icon: Icons.skip_previous_rounded,
+              tooltip: 'Previous episode',
+              label: 'EP ${prev.ep}',
+            ),
+          IconButton(
+            padding: const EdgeInsets.all(10),
+            iconSize: 40,
+            onPressed: () {
+              _hideTimer?.cancel();
+              _seekBy(player, -10);
+              _scheduleHide();
+            },
+            icon: Icon(Icons.replay_10, color: Colors.white),
           ),
-        IconButton(
-          padding: const EdgeInsets.all(10),
-          iconSize: 40,
-          onPressed: () {
-            _hideTimer?.cancel();
-            _seekBy(player, -10);
-            _scheduleHide();
-          },
-          icon: Icon(Icons.replay_10, color: Colors.white),
-        ),
-        _centerPlayPauseButton(context, player),
-        IconButton(
-          padding: const EdgeInsets.all(10),
-          iconSize: 40,
-          onPressed: () {
-            _hideTimer?.cancel();
-            _seekBy(player, 10);
-            _scheduleHide();
-          },
-          icon: Icon(Icons.forward_10, color: Colors.white),
-        ),
-        if (next != null)
-          _episodeNavButton(
-            context,
-            onTap: () => _openEpisode(next),
-            icon: Icons.skip_next_rounded,
-            tooltip: 'Next episode',
-            label: 'EP ${next.ep}',
+          _centerPlayPauseButton(context, player),
+          IconButton(
+            padding: const EdgeInsets.all(10),
+            iconSize: 40,
+            onPressed: () {
+              _hideTimer?.cancel();
+              _seekBy(player, 10);
+              _scheduleHide();
+            },
+            icon: Icon(Icons.forward_10, color: Colors.white),
           ),
-      ],
+          if (next != null)
+            _episodeNavButton(
+              context,
+              onTap: () => _openEpisode(next),
+              icon: Icons.skip_next_rounded,
+              tooltip: 'Next episode',
+              label: 'EP ${next.ep}',
+            ),
+        ],
+      ),
     );
   }
 
