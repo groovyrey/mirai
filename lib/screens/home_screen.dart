@@ -350,7 +350,6 @@ class _HomeScreenState extends State<HomeScreen> {
           item: entry.item,
           ep: entry.ep,
           dub: entry.dub,
-          subtitle: 'EP ${entry.ep}',
           initialPosition: Duration(milliseconds: entry.resumePosition),
           episodes: detail?.episodes,
         ),

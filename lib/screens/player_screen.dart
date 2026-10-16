@@ -34,7 +34,6 @@ class PlayerScreen extends StatefulWidget {
     this.sv,
     this.embed = false,
     this.sourceKind,
-    this.subtitle,
     this.initialPosition,
     this.episodes,
   });
@@ -55,9 +54,6 @@ class PlayerScreen extends StatefulWidget {
   /// HLS with subtitles) or 'aniwaves' (DoodStream, native MP4 first). Carried
   /// across prev/next so the source choice survives episode navigation.
   final String? sourceKind;
-
-  /// Short label like "EP 05" shown under the title in the top bar.
-  final String? subtitle;
 
   /// Resume position passed from the "continue watching" row.
   final Duration? initialPosition;
@@ -118,6 +114,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
   List<ResolvedSubtitle> _subtitles = const [];
   String? _activeSubtitleUrl;
 
+  /// Whether playback is pinned to the DoodStream embed. Set when the player
+  /// opens in embed mode or falls back to it, so switching episodes stays
+  /// there instead of jumping back to native playback.
+  bool _embed = false;
+
+  /// The episode currently on screen. Starts at [PlayerScreen.ep] and changes
+  /// in place when the user steps to a neighbour, so the route (and its
+  /// transition) never changes, only the video does.
+  late int _ep;
+
   // Settings snapshot taken when the player opens.
   bool _hardwareDecode = false;
   double _defaultRate = 1.0;
@@ -145,6 +151,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _subtitleColor = app.subtitleColor.color;
     _subtitleBackground = app.subtitleBackground;
     _sourceKind = widget.sourceKind ?? 'aniwatch';
+    _ep = widget.ep;
+    _embed = widget.embed;
     unawaited(_bootstrap());
   }
 
@@ -160,8 +168,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Future<void> _loadResume() async {
     await WatchHistory.instance.ensureLoaded();
     if (!mounted) return;
-    _resumePosition = widget.initialPosition ??
-        WatchHistory.instance.resumeFor(widget.item, widget.ep);
+    _resumePosition = _resumeFor(_ep);
+  }
+
+  /// Resume point for [ep]: the position passed into the player for the episode
+  /// it opened on, otherwise that episode's own saved position.
+  Duration _resumeFor(int ep) {
+    if (ep == widget.ep && widget.initialPosition != null) {
+      return widget.initialPosition!;
+    }
+    return WatchHistory.instance.resumeFor(widget.item, ep);
   }
 
   @override
@@ -200,7 +216,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     if (position < const Duration(seconds: 5)) return;
     await WatchHistory.instance.update(
       item: widget.item,
-      ep: widget.ep,
+      ep: _ep,
       dub: widget.dub,
       position: position,
       duration: _player?.state.duration ?? Duration.zero,
@@ -252,7 +268,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   String _embedWrapUrl() =>
-      aniwavesEmbedUrl(id: widget.item.id, slug: widget.item.slug, ep: widget.ep);
+      aniwavesEmbedUrl(id: widget.item.id, slug: widget.item.slug, ep: _ep);
 
   Episode? get _prevEpisode => _neighborEpisode(-1);
 
@@ -264,7 +280,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Episode? _neighborEpisode(int dir) {
     final episodes = widget.episodes;
     if (episodes == null || episodes.isEmpty) return null;
-    final current = widget.ep;
+    final current = _ep;
     Episode? best;
     Episode? fallback;
     for (final e in episodes) {
@@ -284,26 +300,39 @@ class _PlayerScreenState extends State<PlayerScreen> {
     return best ?? fallback;
   }
 
-  /// Swaps the current player for the neighboring episode in place so the back
-  /// button still returns to the detail page, keeping the current source and
-  /// the user's audio track.
-  void _openEpisode(Episode target) {
-    final embed = widget.embed || _mode == _PlayerMode.embed;
-    final sv = widget.sv ?? 2;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(
-        builder: (_) => PlayerScreen(
-          item: widget.item,
-          ep: target.ep,
-          dub: widget.dub,
-          sv: sv,
-          embed: embed,
-          sourceKind: _sourceKind,
-          subtitle: 'EP ${target.ep}',
-          episodes: widget.episodes,
-        ),
-      ),
-    );
+  /// Steps to the neighbouring episode in place: the same screen, source and
+  /// audio track stay put, only the video reloads. A route push would slide in
+  /// a new screen and feel like navigation instead of a channel change.
+  Future<void> _switchEpisode(Episode target) async {
+    if (target.ep == _ep) return;
+    _hideTimer?.cancel();
+    _stopStallWatchdog();
+    _stopReadyWatch();
+    await _saveProgress(_lastPosition);
+    final broken = _player;
+    final brokenSub = _errorSub;
+    setState(() {
+      _nativeFailed = false;
+      _fallbackNotice = '';
+      _player = null;
+      _videoController = null;
+      _videoReady = false;
+      _web = null;
+      _mode = _PlayerMode.loading;
+      _subtitles = const [];
+      _activeSubtitleUrl = null;
+      _ep = target.ep;
+    });
+    _errorSub = null;
+    _lastEmbedUrl = null;
+    _nativeAttempts = 0;
+    _lastSeenPosition = Duration.zero;
+    _lastPosition = Duration.zero;
+    unawaited(brokenSub?.cancel());
+    await broken?.dispose();
+    if (!mounted) return;
+    _resumePosition = _resumeFor(_ep);
+    await _start();
   }
 
   Widget _episodeNavButton(
@@ -363,7 +392,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     try {
       final source = await _resolver.resolveAniwatch(
         widget.item,
-        widget.ep,
+        _ep,
         dub: widget.dub,
       );
       if (!mounted) return;
@@ -396,6 +425,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     setState(() {
       _web = controller;
       _mode = _PlayerMode.embed;
+      _embed = true;
       _nativeFailed = notice != null;
       _fallbackNotice = notice ?? '';
     });
@@ -458,7 +488,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       unawaited(_attachSubtitles(player, source));
       _completedSub?.cancel();
       _completedSub = player.stream.completed.listen((_) {
-        unawaited(WatchHistory.instance.clearEntry(widget.item.id, widget.ep));
+        unawaited(WatchHistory.instance.clearEntry(widget.item.id, _ep));
       });
       if (_resumePosition != null) unawaited(_seekAfterOpen(player));
       if (_defaultRate != 1.0) unawaited(player.setRate(_defaultRate));
@@ -732,6 +762,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       _mode = _PlayerMode.loading;
       _subtitles = const [];
       _activeSubtitleUrl = null;
+      _embed = false;
     });
     _errorSub = null;
     _lastEmbedUrl = null;
@@ -764,17 +795,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
     try {
       final source = await _resolver.resolve(
         widget.item,
-        widget.ep,
+        _ep,
         dub: widget.dub,
         sv: widget.sv ?? 2,
         proxy: true,
-        embed: widget.embed,
+        embed: _embed,
       );
       if (!mounted) return;
       _lastEmbedUrl = source.embedUrl?.isNotEmpty == true
           ? source.embedUrl
           : (source.embedMode ? source.playUrl : null);
-      if (!widget.embed) {
+      if (!_embed) {
         if (await _tryPlayDoodClient(source)) return;
         if (!source.embedMode && await _playNative(source)) return;
       }
@@ -809,7 +840,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       final mp4 = await _resolver.resolveDoodNative(
         source.embedUrl ?? source.playUrl,
         animeId: widget.item.id,
-        ep: widget.ep,
+        ep: _ep,
       );
       return ResolvedSource(
         playUrl: mp4,
@@ -1041,7 +1072,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
           if (prev != null)
             _episodeNavButton(
               context,
-              onTap: () => _openEpisode(prev),
+              onTap: () => unawaited(_switchEpisode(prev)),
               icon: Icons.skip_previous_rounded,
               tooltip: 'Previous episode',
               label: 'EP ${prev.ep}',
@@ -1070,7 +1101,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
           if (next != null)
             _episodeNavButton(
               context,
-              onTap: () => _openEpisode(next),
+              onTap: () => unawaited(_switchEpisode(next)),
               icon: Icons.skip_next_rounded,
               tooltip: 'Next episode',
               label: 'EP ${next.ep}',
@@ -1353,19 +1384,46 @@ class _PlayerScreenState extends State<PlayerScreen> {
         controls: NoVideoControls,
         fit: BoxFit.contain,
         fill: const Color(0xFF000000),
-        subtitleViewConfiguration: SubtitleViewConfiguration(
-          style: TextStyle(
-            fontSize: _subtitleSize,
-            height: 1.3,
-            fontWeight: FontWeight.w600,
-            color: _subtitleColor,
-            backgroundColor:
-                Colors.black.withValues(alpha: _subtitleBackground),
-          ),
-          textAlign: TextAlign.center,
-          padding: const EdgeInsets.all(24),
+        // media_kit's own subtitle view scales text by a factor derived from
+        // the surface area (shrinking it on small screens) and lets its
+        // padding drift, so it is disabled in favour of [_subtitleOverlay].
+        subtitleViewConfiguration: const SubtitleViewConfiguration(
+          visible: false,
         ),
       ),
+    );
+  }
+
+  /// Bottom-aligned subtitle track, drawn by the app instead of media_kit so
+  /// the size, colour and bottom gap stay fixed at any screen size and across
+  /// pause/resume and settings changes.
+  Widget _subtitleOverlay() {
+    final player = _player;
+    if (player == null) return const SizedBox.shrink();
+    return StreamBuilder<List<String>>(
+      stream: player.stream.subtitle,
+      initialData: player.state.subtitle,
+      builder: (context, snapshot) {
+        final lines = snapshot.data ?? const <String>[];
+        if (lines.isEmpty) return const SizedBox.shrink();
+        final height = MediaQuery.sizeOf(context).height;
+        final bottom = (height * 0.06).clamp(20.0, 96.0).toDouble();
+        return Padding(
+          padding: EdgeInsets.fromLTRB(16, 0, 16, bottom),
+          child: Text(
+            lines.join('\n'),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: _subtitleSize,
+              height: 1.3,
+              fontWeight: FontWeight.w600,
+              color: _subtitleColor,
+              backgroundColor:
+                  Colors.black.withValues(alpha: _subtitleBackground),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -1380,6 +1438,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
           child: Stack(
             children: [
               Positioned.fill(child: _buildPlayerArea()),
+              if (_mode == _PlayerMode.native)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                      child: _subtitleOverlay(),
+                    ),
+                  ),
+                ),
               if (_mode == _PlayerMode.native && !_videoReady)
                 const Positioned.fill(
                   child: IgnorePointer(
@@ -1593,6 +1660,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   style: context.appTextTheme.titleLarge?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  'EP $_ep',
+                  style: context.appTextTheme.bodyMedium?.copyWith(
+                    color: Colors.white70,
                   ),
                 ),
               ],

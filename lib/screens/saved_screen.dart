@@ -135,7 +135,6 @@ class _SavedBodyState extends State<_SavedBody> {
           item: entry.item,
           ep: entry.ep,
           dub: entry.dub,
-          subtitle: 'EP ${entry.ep}',
           initialPosition: Duration(milliseconds: entry.resumePosition),
           episodes: detail?.episodes,
         ),

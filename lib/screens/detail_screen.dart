@@ -577,7 +577,6 @@ class _DetailScreenState extends State<DetailScreen> {
           dub: dub,
           sv: dood ? 2 : null,
           sourceKind: dood ? 'aniwaves' : 'aniwatch',
-          subtitle: 'EP ${episode.ep}',
           episodes: _detail?.episodes,
         ),
       ),
