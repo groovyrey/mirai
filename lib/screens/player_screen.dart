@@ -207,9 +207,21 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
-  /// Seeks to the saved position once the stream reports a real duration and is
-  /// actually playing, so the seek lands instead of being dropped while the
-  /// demuxer is still warming up. Falls back to a plain seek after a timeout.
+  /// Position mpv opens at, handed to [Media.start] so playback begins there
+  /// as part of the load. Opening at the resume point is what actually sticks:
+  /// a runtime [Player.seek] issued right after open gets undone on some
+  /// network streams (it lands for a second, then the demuxer restarts at
+  /// 0:00), whereas mpv's `start` is applied before the first frame.
+  Duration? get _startPosition {
+    final resume = _resumePosition;
+    if (resume == null || resume <= const Duration(seconds: 5)) return null;
+    return resume;
+  }
+
+  /// Fallback for sources that ignore [Media.start]: once the stream reports a
+  /// real duration and is playing, and after a short grace so an honored
+  /// `start` has settled the position, seek only when playback is still at the
+  /// top of the file.
   Future<void> _seekAfterOpen(Player player) async {
     final resume = _resumePosition;
     if (resume == null || resume <= const Duration(seconds: 5)) return;
@@ -228,6 +240,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         ready.future,
         Future<void>.delayed(const Duration(seconds: 10)),
       ]);
+      await Future<void>.delayed(const Duration(milliseconds: 1500));
     } finally {
       await durationSub.cancel();
       await playingSub.cancel();
@@ -421,6 +434,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
               Media(
                 source.playUrl,
                 httpHeaders: source.httpHeaders,
+                start: _startPosition,
               ),
             )
             .then((_) => opened = true),
