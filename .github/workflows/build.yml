@@ -98,23 +98,55 @@ jobs:
           gh release download v1.1.7 --repo media-kit/libmpv-android-video-build \
             --pattern 'default-*.jar' --dir build/media_kit_libs_android_video/v1.1.7 --clobber
 
-          # The Flutter Gradle included build defaults to the plugin portal,
-          # whose Kotlin artifacts redirect to the failing release asset host.
-          settings="$FLUTTER_ROOT/packages/flutter_tools/gradle/settings.gradle.kts"
-          if ! grep -q 'pluginManagement' "$settings"; then
-            tmp=$(mktemp)
-            printf '%s\n' \
-              'pluginManagement {' \
-              '    repositories {' \
-              '        google()' \
-              '        mavenCentral()' \
-              '        gradlePluginPortal()' \
-              '    }' \
-              '}' \
-              '' | cat - "$settings" > "$tmp"
-            sudo cp "$tmp" "$settings"
-            rm -f "$tmp"
+          # Gradle's Kotlin DSL compiler is a 56 MB Maven Central artifact that
+          # the same outage redirects to the failing GitHub host.
+          kotlin_dir=.ci-maven/org/jetbrains/kotlin/kotlin-compiler-embeddable/2.0.21
+          mkdir -p "$kotlin_dir"
+          gh release download v2.0.21 --repo JetBrains/kotlin \
+            --pattern kotlin-compiler-embeddable-2.0.21.jar \
+            --dir "$kotlin_dir" --clobber
+          echo "79346ed53db48b18312a472602eb5c057070c54d  $kotlin_dir/kotlin-compiler-embeddable-2.0.21.jar" | sha1sum -c -
+          if ! curl -fsSL --retry 3 --max-time 60 \
+            -o "$kotlin_dir/kotlin-compiler-embeddable-2.0.21.pom" \
+            'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-compiler-embeddable/2.0.21/kotlin-compiler-embeddable-2.0.21.pom'; then
+            curl -fsSL --retry 3 --max-time 60 \
+              -o "$kotlin_dir/kotlin-compiler-embeddable-2.0.21.pom" \
+              'https://repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-compiler-embeddable/2.0.21/kotlin-compiler-embeddable-2.0.21.pom'
           fi
+
+          # Resolve the pre-seeded Kotlin jar before any network repository.
+          sudo chmod a+w "$FLUTTER_ROOT/packages/flutter_tools/gradle/settings.gradle.kts"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          repo = f'file://{Path.cwd()}/.ci-maven'
+          local = f'        maven {{ url = java.net.URI("{repo}") }}'
+          needle = "    repositories {\n        google()"
+          replacement = f"    repositories {{\n{local}\n        google()"
+
+          settings = Path(os.environ["FLUTTER_ROOT"]) / "packages/flutter_tools/gradle/settings.gradle.kts"
+          text = settings.read_text()
+          if repo not in text:
+              text = text.replace(needle, replacement, 1)
+          if "pluginManagement" not in text:
+              text = (
+                  "pluginManagement {\n"
+                  "    repositories {\n"
+                  f"{local}\n"
+                  "        google()\n"
+                  "        mavenCentral()\n"
+                  "        gradlePluginPortal()\n"
+                  "    }\n"
+                  "}\n\n" + text
+              )
+          settings.write_text(text)
+
+          main = Path("android/settings.gradle.kts")
+          text = main.read_text()
+          if repo not in text:
+              main.write_text(text.replace(needle, replacement, 1))
+          PY
 
       - name: Build APK (release, arm64 only)
         run: flutter build apk --release --split-per-abi
