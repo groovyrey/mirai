@@ -142,15 +142,17 @@ class ResolverService {
     } catch (_) {
       throw const ResolveFailure('Failed to reach the resolver.');
     }
-    if (res.statusCode != 200) {
-      throw ResolveFailure('Resolver error ${res.statusCode}.');
+    Object? data;
+    try {
+      data = jsonDecode(res.body);
+    } catch (_) {
+      data = null;
     }
-    final data = jsonDecode(res.body);
     final source = ResolvedSource.tryFromJson(data);
     if (source == null) {
       final message = data is Map<String, dynamic>
           ? (data['error'] as String?) ?? 'Nothing playable.'
-          : 'Nothing playable.';
+          : 'Resolver error ${res.statusCode}.';
       throw ResolveFailure(message);
     }
     return source;
