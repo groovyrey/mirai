@@ -63,6 +63,59 @@ jobs:
       - name: Run tests
         run: flutter test
 
+      - name: Pre-seed build dependencies
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          # github.com release asset downloads currently return 504 from the
+          # runner. Fetch the same files through the GitHub API and point the
+          # Gradle wrapper at the local copy.
+          mkdir -p .ci-artifacts
+          gh release download v8.14.1 --repo gradle/gradle-distributions \
+            --pattern gradle-8.14.1-all.zip --dir .ci-artifacts --clobber
+          echo "d7042b3c11565c192041fc8c4703f541b888286404b4f267138c1d094d8ecdca  .ci-artifacts/gradle-8.14.1-all.zip" | sha256sum -c -
+          python3 - <<'PY'
+          from pathlib import Path
+
+          props = Path("android/gradle/wrapper/gradle-wrapper.properties")
+          dist = f"file\\://{Path.cwd()}/.ci-artifacts/gradle-8.14.1-all.zip"
+          lines = [
+              f"distributionUrl={dist}" if line.startswith("distributionUrl=") else line
+              for line in props.read_text().splitlines()
+          ]
+          if not any(line.startswith("distributionSha256Sum=") for line in lines):
+              lines.append(
+                  "distributionSha256Sum="
+                  "d7042b3c11565c192041fc8c4703f541b888286404b4f267138c1d094d8ecdca"
+              )
+          props.write_text("\n".join(lines) + "\n")
+          PY
+
+          # media_kit downloads its native jars straight from GitHub releases.
+          mkdir -p build/media_kit_libs_android_video/v1.1.7
+          gh release download v1.1.7 --repo media-kit/libmpv-android-video-build \
+            --pattern 'default-*.jar' --dir build/media_kit_libs_android_video/v1.1.7 --clobber
+
+          # The Flutter Gradle included build defaults to the plugin portal,
+          # whose Kotlin artifacts redirect to the failing release asset host.
+          settings="$FLUTTER_ROOT/packages/flutter_tools/gradle/settings.gradle.kts"
+          if ! grep -q 'pluginManagement' "$settings"; then
+            tmp=$(mktemp)
+            printf '%s\n' \
+              'pluginManagement {' \
+              '    repositories {' \
+              '        google()' \
+              '        mavenCentral()' \
+              '        gradlePluginPortal()' \
+              '    }' \
+              '}' \
+              '' | cat - "$settings" > "$tmp"
+            sudo cp "$tmp" "$settings"
+            rm -f "$tmp"
+          fi
+
       - name: Build APK (release, arm64 only)
         run: flutter build apk --release --split-per-abi
 
