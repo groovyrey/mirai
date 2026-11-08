@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
@@ -20,7 +22,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final CatalogService _catalog = CatalogService();
   final Saved _saved = Saved.instance;
   final WatchHistory _history = WatchHistory.instance;
@@ -36,18 +38,63 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _saved.addListener(_onStoresChanged);
+    _history.addListener(_onStoresChanged);
     _load();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _saved.removeListener(_onStoresChanged);
+    _history.removeListener(_onStoresChanged);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    // A long background stint is the common way a saved title picks up new
+    // episodes, so refresh the queue snapshots as soon as the app comes back.
+    _refreshQueue();
+  }
+
+  /// The stored queue detail is the snapshot captured when the title was
+  /// saved, so airing shows need a fresh fetch to pick up new episodes.
+  void _refreshQueue() {
+    unawaited(
+      _saved.refreshDetails(
+        (item) => _catalog.detail(item.id, item.slug),
+        limit: 10,
+        onlyAiring: true,
+      ),
+    );
+  }
+
+  void _onStoresChanged() {
+    if (!mounted) return;
+    setState(() {
+      _queue = _saved.entries.take(10).toList();
+      _continueWatching = _history.entries.take(10).toList();
+    });
   }
 
   Future<void> _load() async {
     setState(() => _loading = true);
+    // Local stores first so the queue and continue rail can render even when
+    // the catalog request fails.
+    await Future.wait([
+      _saved.ensureLoaded(),
+      _history.ensureLoaded(),
+    ]);
+    if (!mounted) return;
+    setState(() {
+      _queue = _saved.entries.take(10).toList();
+      _continueWatching = _history.entries.take(10).toList();
+    });
+    _refreshQueue();
     try {
-      // Ensure local stores are loaded
-      await Future.wait([
-        _saved.ensureLoaded(),
-        _history.ensureLoaded(),
-      ]);
-
       final results = await Future.wait([
         _catalog.rail('trending'),
         _catalog.rail('updated'),
@@ -59,8 +106,6 @@ class _HomeScreenState extends State<HomeScreen> {
         _lead = results[0];
         _rail = results[1];
         _newest = results[2];
-        _continueWatching = _history.entries.take(10).toList();
-        _queue = _saved.entries.take(10).toList();
         _error = null;
       });
     } catch (_) {
@@ -481,8 +526,7 @@ class _QueueCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final eps =
-        detail.totalEps > 0 ? detail.totalEps : detail.episodes.length;
+    final eps = detail.episodeCount;
     return Material(
       color: Colors.transparent,
       child: InkWell(

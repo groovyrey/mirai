@@ -118,6 +118,17 @@ class AnimeDetail {
 
   bool get hasEpisodes => episodes.isNotEmpty;
 
+  /// Highest episode number any source reports. `totalEps` can lag behind the
+  /// sub/dub counts and the episode list while a title is still airing, so the
+  /// queue badge reads from all of them.
+  int get episodeCount {
+    var count = totalEps;
+    if (subEps > count) count = subEps;
+    if (dubEps > count) count = dubEps;
+    if (episodes.length > count) count = episodes.length;
+    return count;
+  }
+
   /// Returns the first episode available (typically EP 1), used for queue display.
   Episode? get nextEpisode {
     if (episodes.isEmpty) return null;

@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/anime_item.dart';
+import '../services/catalog_service.dart';
 import '../services/saved.dart';
 import '../services/watch_history.dart';
 import '../theme/app_theme.dart';
@@ -55,18 +58,43 @@ class _SavedBody extends StatefulWidget {
   State<_SavedBody> createState() => _SavedBodyState();
 }
 
-class _SavedBodyState extends State<_SavedBody> {
+class _SavedBodyState extends State<_SavedBody> with WidgetsBindingObserver {
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     Future.wait([
       Saved.instance.ensureLoaded(),
       WatchHistory.instance.ensureLoaded(),
     ]).then((_) {
       if (mounted) setState(() => _loading = false);
+      _refreshSaved();
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refreshSaved();
+  }
+
+  /// Queue rows carry a snapshot from save time. Refresh the airing titles in
+  /// the background so their episode counts follow the catalog.
+  void _refreshSaved() {
+    unawaited(
+      Saved.instance.refreshDetails(
+        (item) => CatalogService().detail(item.id, item.slug),
+        limit: 60,
+        onlyAiring: true,
+      ),
+    );
   }
 
   @override
@@ -268,7 +296,7 @@ class _SavedTile extends StatelessWidget {
                   Text(
                     '${detail.subEps > 0 ? 'S${detail.subEps}' : ''}'
                     '${detail.dubEps > 0 ? ' · D${detail.dubEps}' : ''}'
-                    '${detail.totalEps > 0 ? ' · ${detail.totalEps} EPS' : ''}',
+                    '${detail.episodeCount > 0 ? ' · ${detail.episodeCount} EPS' : ''}',
                     style: context.appTextTheme.labelSmall?.copyWith(
                       fontSize: 10,
                     ),

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -76,6 +78,9 @@ class _DetailScreenState extends State<DetailScreen> {
           _loading = false;
           _visibleEps = _epsPerPage;
         });
+        // A saved title keeps the snapshot from when it was bookmarked. Opening
+        // its detail is the freshest fetch we get, so sync the queue too.
+        unawaited(Saved.instance.updateDetail(detail));
         // Auto-play if initial episode was specified
         if (widget.initialEp != null) {
           final episodes = detail.episodes;
@@ -232,6 +237,7 @@ class _DetailScreenState extends State<DetailScreen> {
     final hasSub = detail.subEps > 0;
     final hasDub = detail.dubEps > 0;
     final maxEp = detail.subEps > detail.dubEps ? detail.subEps : detail.dubEps;
+    final episodeCount = detail.episodeCount;
     final prefSv = app.preferredSv(item.id.toString());
     final children = <Widget>[
       if (detail.coverUrl != null && detail.coverUrl!.isNotEmpty) ...[
@@ -302,11 +308,11 @@ class _DetailScreenState extends State<DetailScreen> {
           label: 'Episodes',
           value: '${detail.dubEps} dub',
         ),
-      if (detail.totalEps > 0 && detail.totalEps != maxEp)
+      if (episodeCount > 0 && episodeCount != maxEp)
         (
           icon: Icons.video_collection_outlined,
           label: 'Total',
-          value: '${detail.totalEps} eps',
+          value: '$episodeCount eps',
         ),
       if (item.rating != null && item.rating!.isNotEmpty)
         (icon: Icons.star_rounded, label: 'Rating', value: item.rating!),

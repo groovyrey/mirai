@@ -77,6 +77,85 @@ class Saved extends ChangeNotifier {
     await _persist();
   }
 
+  /// Replaces the stored snapshot for [detail]'s title when it is already in
+  /// the queue. Detail screens call this after a fresh fetch so saved metadata
+  /// does not stay frozen at the episode count seen when the title was added.
+  Future<void> updateDetail(AnimeDetail detail) async {
+    await ensureLoaded();
+    final index =
+        _entries.indexWhere((e) => e.detail.item.id == detail.item.id);
+    if (index < 0 || _sameDetail(_entries[index].detail, detail)) return;
+    _entries[index] = SavedEntry(
+      detail: detail,
+      addedAt: _entries[index].addedAt,
+    );
+    notifyListeners();
+    await _persist();
+  }
+
+  /// Re-fetches the first [limit] saved entries with [fetch] (only airing
+  /// titles when [onlyAiring] is set), ignoring failures so an offline start
+  /// keeps serving the stored snapshot. Returns how many entries changed.
+  Future<int> refreshDetails(
+    Future<AnimeDetail> Function(AnimeItem item) fetch, {
+    int limit = 20,
+    int concurrency = 4,
+    bool onlyAiring = false,
+  }) async {
+    await ensureLoaded();
+    final targets = _entries
+        .where(
+          (e) =>
+              !onlyAiring ||
+              (e.detail.status ?? '').trim().toLowerCase() == 'airing',
+        )
+        .take(limit)
+        .map((e) => e.detail.item)
+        .toList();
+    if (targets.isEmpty) return 0;
+    final updates = <AnimeDetail>[];
+    var next = 0;
+    Future<void> worker() async {
+      while (next < targets.length) {
+        final item = targets[next++];
+        try {
+          updates.add(await fetch(item));
+        } catch (_) {
+          // Keep the stored snapshot when the title cannot be refreshed.
+        }
+      }
+    }
+
+    await Future.wait([
+      for (var i = 0; i < concurrency && i < targets.length; i++) worker(),
+    ]);
+    var changed = 0;
+    for (final detail in updates) {
+      final index =
+          _entries.indexWhere((e) => e.detail.item.id == detail.item.id);
+      if (index < 0 || _sameDetail(_entries[index].detail, detail)) continue;
+      _entries[index] = SavedEntry(
+        detail: detail,
+        addedAt: _entries[index].addedAt,
+      );
+      changed++;
+    }
+    if (changed > 0) {
+      notifyListeners();
+      await _persist();
+    }
+    return changed;
+  }
+
+  static bool _sameDetail(AnimeDetail a, AnimeDetail b) =>
+      a.item.title == b.item.title &&
+      a.item.image == b.item.image &&
+      a.status == b.status &&
+      a.totalEps == b.totalEps &&
+      a.subEps == b.subEps &&
+      a.dubEps == b.dubEps &&
+      a.episodes.length == b.episodes.length;
+
   Future<void> clear() async {
     await ensureLoaded();
     _entries.clear();
