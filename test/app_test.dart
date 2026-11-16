@@ -55,32 +55,32 @@ void main() {
   testWidgets('shell navigation drawer lists every section', (tester) async {
     await boot(tester);
 
-    expect(find.text('SAVED'), findsNothing);
+    expect(find.text('Saved'), findsNothing);
     await openDrawer(tester);
 
-    expect(find.text('HOME'), findsOneWidget);
-    expect(find.text('TRENDING'), findsOneWidget);
-    expect(find.text('SAVED'), findsOneWidget);
-    expect(find.text('FIND'), findsOneWidget);
-    expect(find.text('SETTINGS'), findsOneWidget);
+    expect(find.text('Home'), findsOneWidget);
+    expect(find.text('Trending'), findsOneWidget);
+    expect(find.text('Saved'), findsOneWidget);
+    expect(find.text('Find'), findsOneWidget);
+    expect(find.text('Settings'), findsOneWidget);
   });
 
   testWidgets('saved shows its empty state', (tester) async {
     await boot(tester);
 
     await openDrawer(tester);
-    await tester.tap(find.text('SAVED'));
+    await tester.tap(find.text('Saved'));
     await tester.pumpAndSettle();
 
     expect(find.byType(SavedScreen), findsOneWidget);
-    expect(find.text('NOTHING SAVED YET.'), findsOneWidget);
+    expect(find.text('Nothing saved yet.'), findsOneWidget);
   });
 
   testWidgets('settings exposes the settings column', (tester) async {
     await boot(tester);
 
     await openDrawer(tester);
-    await tester.tap(find.text('SETTINGS'));
+    await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
 
     expect(find.byType(SettingsScreen), findsOneWidget);
@@ -97,13 +97,13 @@ void main() {
       expect(finder, findsOneWidget, reason: 'missing section "$label"');
     }
 
-    await expectVisible('APPEARANCE');
+    await expectVisible('Appearance');
     await expectVisible('Theme');
-    await expectVisible('PLAYBACK');
+    await expectVisible('Playback');
     await expectVisible('Keep screen awake');
     await expectVisible('Check for updates');
     await expectVisible('Update channel');
-    await expectVisible('ACCOUNT & DATA');
+    await expectVisible('Account & data');
 
     // Let the delayed auto-update check and its network call finish so no
     // timers are left pending.
@@ -156,7 +156,7 @@ void main() {
 
     expect(find.text('Update available'), findsOneWidget);
     expect(find.text('AniWatch source'), findsOneWidget);
-    expect(find.text('ALL RELEASES'), findsOneWidget);
+    expect(find.text('All releases'), findsOneWidget);
   });
 
   group('version checker', () {
