@@ -95,6 +95,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
   /// server is the primary/default source (native HLS with subtitles).
   String _sourceKind = 'aniwatch';
 
+  /// Pinned aniwaves server id, or null for the worker's English-first default.
+  int? _sv;
+
+  /// Server the worker reported for the current aniwaves stream.
+  String? _activeServerName;
+
   // Native watchdog: retries when the stream stalls instead of leaving the
   // clock frozen at 0:00 or mid-episode. Guarded by live playing state, so a
   // user-initiated pause never trips it.
@@ -151,6 +157,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _subtitleColor = app.subtitleColor.color;
     _subtitleBackground = app.subtitleBackground;
     _sourceKind = widget.sourceKind ?? 'aniwatch';
+    _sv = widget.sv;
     _ep = widget.ep;
     _embed = widget.embed;
     unawaited(_bootstrap());
@@ -370,8 +377,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   /// Resolves the selected source. ZokoAnime plays natively through media_kit;
-  /// DoodStream is resolved to a direct MP4 on the phone and also played
-  /// natively, with its embed page as a last resort.
+  /// aniwaves is resolved to a direct VHS-CDN MP4/HLS or DoodStream MP4 and
+  /// also played natively, with its embed page as a last resort.
   Future<void> _start() async {
     if (_sourceKind == 'aniwatch') {
       await _startAniwatch();
@@ -385,8 +392,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
   /// The worker maps the title onto the mirror's catalog and returns its native
   /// HLS (ZokoAnime / MegaPlay), already wrapped in the media proxy because the
   /// CDN gates on a mobile UA and a zokoanime referer. When the mirror has no
-  /// entry for the title or the episode, playback falls through to the
-  /// DoodStream source so the user is never stuck on a dead screen.
+  /// entry for the title or the episode, playback falls through to aniwaves so
+  /// the user is never stuck on a dead screen. Aniwaves is English-first
+  /// (MyCloud's soft-sub source) but the player sheet can switch servers.
   Future<void> _startAniwatch() async {
     setState(() => _mode = _PlayerMode.loading);
     try {
@@ -399,19 +407,19 @@ class _PlayerScreenState extends State<PlayerScreen> {
       if (await _playNative(source)) return;
       await _startDood(
         notice:
-            'ZokoAnime\'s stream couldn\'t be reached, so Mirai played the DoodStream source instead.',
+            'ZokoAnime\'s stream couldn\'t be reached, so Mirai played an aniwaves source instead.',
       );
     } on ResolveFailure catch (error) {
       if (!mounted) return;
       await _startDood(
         notice:
-            'ZokoAnime didn\'t have this episode (${error.message}), so Mirai played the DoodStream source instead.',
+            'ZokoAnime didn\'t have this episode (${error.message}), so Mirai played an aniwaves source instead.',
       );
     } catch (_) {
       if (!mounted) return;
       await _startDood(
         notice:
-            'ZokoAnime couldn\'t be reached, so Mirai played the DoodStream source instead.',
+            'ZokoAnime couldn\'t be reached, so Mirai played an aniwaves source instead.',
       );
     }
   }
@@ -541,10 +549,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   /// Stores the source's subtitle tracks and auto-selects a sensible default.
   ///
-  /// AniWatch's ZokoAnime server publishes VTT tracks; aniwaves hands back an
-  /// MP4 with none, so this is a no-op there. The first English track wins,
-  /// otherwise the first listed. Failures are swallowed: a missing or rejected
-  /// track must never take playback down.
+  /// AniWatch's ZokoAnime server publishes VTT tracks; aniwaves' MyCloud
+  /// server publishes an English SRT. The first English track wins, otherwise
+  /// the first listed. Failures are swallowed: a missing or rejected track
+  /// must never take playback down.
   Future<void> _attachSubtitles(Player player, ResolvedSource source) async {
     final tracks = source.subtitles ?? const <ResolvedSubtitle>[];
     if (!mounted) return;
@@ -558,8 +566,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   ResolvedSubtitle _defaultSubtitle(List<ResolvedSubtitle> tracks) {
     for (final track in tracks) {
-      final label = track.label.toLowerCase();
-      if (label.contains('english') || label == 'en') return track;
+      final label = track.label.trim().toLowerCase();
+      if (label == 'en' || label == 'eng' || label == 'english' ||
+          label.startsWith('english')) {
+        return track;
+      }
     }
     return tracks.first;
   }
@@ -735,16 +746,21 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   /// The source currently on screen, used to highlight the sheet item. Native
   /// playback follows the active source kind; the embed always belongs to the
-  /// DoodStream source.
+  /// aniwaves source.
   String? _currentSourceName() {
-    if (_mode == _PlayerMode.embed) return 'aniwaves';
+    if (_mode == _PlayerMode.embed) {
+      return _sv == null ? 'aniwaves' : 'aniwaves:$_sv';
+    }
     if (_mode == _PlayerMode.native) {
-      return _sourceKind == 'aniwatch' ? 'aniwatch' : 'aniwaves';
+      if (_sourceKind == 'aniwatch') return 'aniwatch';
+      return _sv == null ? 'aniwaves' : 'aniwaves:$_sv';
     }
     return null;
   }
 
-  /// Switches between the aniwatch source (ZokoAnime) and DoodStream.
+  /// Switches between ZokoAnime and the aniwaves servers. `aniwaves` is the
+  /// English-first default (MyCloud then DatSaV/Vidplay); `aniwaves:<sv>`
+  /// pins a specific server.
   void _switchSource(String name) {
     if (name == _currentSourceName()) return;
     _hideTimer?.cancel();
@@ -769,7 +785,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
     unawaited(brokenSub?.cancel());
     unawaited(broken?.dispose());
     _nativeAttempts = 0;
-    if (name == 'aniwaves') {
+    if (name.startsWith('aniwaves')) {
+      final parts = name.split(':');
+      _sv = parts.length == 2 ? int.tryParse(parts[1]) : null;
       _sourceKind = 'aniwaves';
       unawaited(_startDood());
     } else {
@@ -778,12 +796,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
   }
 
-  /// Resolves and plays the aniwaves DoodStream source.
-  ///
-  /// The worker hands back a dood embed wrapper (its Cloudflare egress can't
-  /// pass dood's challenge), so the direct MP4 is resolved on the phone from
-  /// that wrapper and played natively. The embed page is only opened when that
-  /// on-device walk fails, or when the caller asked for the embed explicitly;
+  /// Resolves and plays the aniwaves source. The worker prefers MyCloud for
+  /// its English soft subs, then DatSaV/Vidplay, then DoodStream. VHS-CDN
+  /// streams and worker-resolved dood MP4s play natively; a Dood embed is
+  /// resolved on-device as before. The embed page is only opened when native
+  /// playback fails, or when the caller asked for the embed explicitly;
   /// [notice] explains why playback isn't on ZokoAnime.
   Future<void> _startDood({String? notice}) async {
     setState(() {
@@ -797,11 +814,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
         widget.item,
         _ep,
         dub: widget.dub,
-        sv: widget.sv ?? 2,
+        sv: _sv,
         proxy: true,
         embed: _embed,
       );
       if (!mounted) return;
+      _activeServerName = source.serverName;
       _lastEmbedUrl = source.embedUrl?.isNotEmpty == true
           ? source.embedUrl
           : (source.embedMode ? source.playUrl : null);
@@ -868,8 +886,28 @@ class _PlayerScreenState extends State<PlayerScreen> {
       ),
       (
         name: 'aniwaves',
-        label: 'DoodStream',
+        label: 'Aniwaves, English sub',
         current: current == 'aniwaves',
+      ),
+      (
+        name: 'aniwaves:12',
+        label: 'MyCloud, English soft sub',
+        current: current == 'aniwaves:12',
+      ),
+      (
+        name: 'aniwaves:14',
+        label: 'DatSaV, MP4',
+        current: current == 'aniwaves:14',
+      ),
+      (
+        name: 'aniwaves:4',
+        label: 'Vidplay, HLS',
+        current: current == 'aniwaves:4',
+      ),
+      (
+        name: 'aniwaves:2',
+        label: 'DoodStream',
+        current: current == 'aniwaves:2',
       ),
     ];
     showModalBottomSheet<void>(
@@ -1268,7 +1306,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   /// Provider label shown at the right of the control bar.
   String get _sourceLabel {
     if (_sourceKind == 'aniwatch') return 'ZokoAnime';
-    return 'DoodStream';
+    return _activeServerName ?? 'Aniwaves';
   }
 
   /// 'CC' button; only shown when the current source ships subtitle tracks.

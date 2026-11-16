@@ -18,8 +18,8 @@ import 'player_screen.dart';
 /// resolved to a direct MP4 on the phone, with its embed page as a fallback.
 enum _PlaySource { zoko, dood }
 
-/// Maps a persisted source preference (0 = DoodStream, anything else or
-/// unset = ZokoAnime) onto the source enum. ZokoAnime is the default.
+/// Maps a persisted source preference (0 = Aniwaves, anything else or unset =
+/// ZokoAnime) onto the source enum. ZokoAnime is the default.
 _PlaySource _sourceForSv(int? sv) =>
     sv == 0 ? _PlaySource.dood : _PlaySource.zoko;
 
@@ -428,7 +428,7 @@ class _DetailScreenState extends State<DetailScreen> {
                   context,
                   item,
                   source: _PlaySource.dood,
-                  label: 'DoodStream',
+                  label: 'Aniwaves',
                   active: prefSv == 0,
                 ),
               ],
@@ -534,7 +534,7 @@ class _DetailScreenState extends State<DetailScreen> {
     );
   }
 
-  /// Pins the source choice for this anime (0 = DoodStream, unset / 1 =
+  /// Pins the source choice for this anime (0 = Aniwaves, unset / 1 =
   /// ZokoAnime native) and plays the first available episode so the choice is
   /// immediately felt.
   void _selectSource(BuildContext context, AnimeItem item, _PlaySource source) {
@@ -582,7 +582,6 @@ class _DetailScreenState extends State<DetailScreen> {
           item: item,
           ep: episode.ep,
           dub: dub,
-          sv: dood ? 2 : null,
           sourceKind: dood ? 'aniwaves' : 'aniwatch',
           episodes: _detail?.episodes,
         ),

@@ -26,13 +26,15 @@ class ResolvedSource {
     this.embedUrl,
     this.subtitles,
     this.animeTitle,
+    this.serverName,
   });
 
   final String playUrl;
 
   /// Provider slug from the worker. Direct sources are playable as-is:
-  /// 'doodstream' (MP4) and the aniwatch native sources 'zokoanime' / 'megaplay'
-  /// (HLS). Anything else is only usable as an embed page.
+  /// 'doodstream' / 'vhscdn' (MP4 or HLS) and the aniwatch native sources
+  /// 'zokoanime' / 'megaplay' (HLS). Anything else is only usable as an embed
+  /// page.
   final String provider;
   final String quality;
   final bool embedMode;
@@ -54,7 +56,11 @@ class ResolvedSource {
   /// requested title (the mirror carries franchises under separate entries).
   final String? animeTitle;
 
-  static const _directProviders = {'doodstream', 'zokoanime', 'megaplay'};
+  /// The aniwaves server the worker actually used (MyCloud, DatSaV, Vidplay,
+  /// DoodStream). Used by the player's source label and switcher.
+  final String? serverName;
+
+  static const _directProviders = {'doodstream', 'vhscdn', 'zokoanime', 'megaplay'};
 
   static ResolvedSource? tryFromJson(Object? data) {
     if (data is! Map<String, dynamic>) return null;
@@ -82,6 +88,7 @@ class ResolvedSource {
               .toList()
           : null,
       animeTitle: data['animeTitle'] as String?,
+      serverName: data['serverName'] as String?,
     );
   }
 }
@@ -104,15 +111,21 @@ class ResolverService {
   final http.Client _client;
 
   /// aniwaves server id (as passed to the worker ?sv=) -> display name.
+  /// MyCloud is preferred because it is the soft-sub source with an English
+  /// caption track; DatSaV/Vidplay are the other direct VHS-CDN variants.
   static const serverNames = <int, String>{
+    12: 'MyCloud',
+    14: 'DatSaV',
+    4: 'Vidplay',
     2: 'DoodStream',
   };
 
-  static const serverOrder = [2];
+  static const serverOrder = [12, 14, 4, 2];
 
   /// Direct-stream provider slug -> the label shown in the player UI.
   static const providerLabels = <String, String>{
     'doodstream': 'DoodStream',
+    'vhscdn': 'VHS',
     'zokoanime': 'ZokoAnime',
     'megaplay': 'MegaPlay',
   };
