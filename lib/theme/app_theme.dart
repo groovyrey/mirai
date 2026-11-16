@@ -262,7 +262,6 @@ ThemeData _applyComponentThemes(ThemeData theme) {
     listTileTheme: ListTileThemeData(
       textColor: c.onSurface,
       iconColor: c.onSurfaceVariant,
-      subtitleColor: c.onSurfaceVariant,
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
     ),
     chipTheme: ChipThemeData(
