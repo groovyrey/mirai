@@ -104,10 +104,10 @@ class _BrowseScreenState extends State<BrowseScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 4),
             child: Text(
-              'BROWSE ALL',
+              'Browse all',
               style: context.appTextTheme.displayMedium?.copyWith(
                 color: context.appOnSurface,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -176,7 +176,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
                   style: context.appTextTheme.labelSmall?.copyWith(
                     fontSize: 12,
                     letterSpacing: 1,
-                    fontWeight: active ? FontWeight.w800 : FontWeight.w500,
+                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
                     color: active ? context.appAccent : context.appOnSurfaceVariant,
                   ),
                 ),

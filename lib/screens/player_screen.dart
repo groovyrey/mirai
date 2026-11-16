@@ -863,7 +863,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final items = <({String name, String label, bool current})>[
       (
         name: 'aniwatch',
-        label: 'ZokoAnime · primary',
+        label: 'ZokoAnime, primary',
         current: current == 'aniwatch',
       ),
       (
@@ -893,7 +893,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    'SWITCH SOURCE',
+                    'Switch source',
                     style: context.appTextTheme.titleMedium?.copyWith(
                       color: context.appOnSurface,
                       fontWeight: FontWeight.w600,
@@ -1267,8 +1267,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   /// Provider label shown at the right of the control bar.
   String get _sourceLabel {
-    if (_sourceKind == 'aniwatch') return 'ZOKOANIME';
-    return 'DOODSTREAM';
+    if (_sourceKind == 'aniwatch') return 'ZokoAnime';
+    return 'DoodStream';
   }
 
   /// 'CC' button; only shown when the current source ships subtitle tracks.

@@ -81,10 +81,10 @@ class _SearchScreenState extends State<SearchScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 4),
             child: Text(
-              'SEARCH THE CHANNEL',
+              'Search the channel',
               style: context.appTextTheme.displayMedium?.copyWith(
                 color: context.appOnSurface,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -100,7 +100,7 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
               cursorColor: context.appAccent,
               decoration: InputDecoration(
-                hintText: 'TITLE, GENRE, NAME…',
+                hintText: 'Title, genre, name',
                 hintStyle: context.appTextTheme.labelSmall?.copyWith(
                   letterSpacing: 1.5,
                 ),
@@ -151,7 +151,7 @@ class _SearchScreenState extends State<SearchScreen> {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 40),
           child: Text(
-            'TYPE AT LEAST THREE LETTERS\nTO TUNE THE FEED.',
+            'Type at least three letters\nto tune the feed.',
             textAlign: TextAlign.center,
             style: context.appTextTheme.labelSmall?.copyWith(
               fontSize: 12,
@@ -165,7 +165,7 @@ class _SearchScreenState extends State<SearchScreen> {
     if (results.isEmpty) {
       return Center(
         child: Text(
-          'NOTHING ON THIS CHANNEL.',
+          'Nothing on this channel.',
           style: context.appTextTheme.labelSmall?.copyWith(
             letterSpacing: 1,
           ),

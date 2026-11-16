@@ -34,17 +34,17 @@ class SettingsScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 4),
             child: Text(
-              'MORE',
+              'More',
               style: context.appTextTheme.displayMedium?.copyWith(
                 color: context.appOnSurface,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
           if (pending != null) _banner(context, pending),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-            child: SectionLabel(text: 'APPEARANCE'),
+            child: SectionLabel(text: 'Appearance'),
           ),
           _ListTile(
             title: 'Theme',
@@ -57,7 +57,7 @@ class SettingsScreen extends StatelessWidget {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-            child: SectionLabel(text: 'PLAYBACK'),
+            child: SectionLabel(text: 'Playback'),
           ),
           _SwitchTile(
             title: 'Keep screen awake',
@@ -117,7 +117,7 @@ class SettingsScreen extends StatelessWidget {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-            child: SectionLabel(text: 'SUBTITLES'),
+            child: SectionLabel(text: 'Subtitles'),
           ),
           _SliderTile(
             title: 'Text size',
@@ -146,7 +146,7 @@ class SettingsScreen extends StatelessWidget {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-            child: SectionLabel(text: 'ACCOUNT & DATA'),
+            child: SectionLabel(text: 'Account & data'),
           ),
           _ListTile(
             title: 'Saved titles',
@@ -160,7 +160,7 @@ class SettingsScreen extends StatelessWidget {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-            child: SectionLabel(text: 'SUPPORT'),
+            child: SectionLabel(text: 'Support'),
           ),
           _ListTile(
             title: 'Report a problem',
@@ -204,7 +204,7 @@ class SettingsScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'UPDATE AVAILABLE',
+              'Update available',
               style: context.appTextTheme.labelSmall?.copyWith(
                 color: context.appOnAccentSoft,
                 letterSpacing: 2,
@@ -226,7 +226,7 @@ class SettingsScreen extends StatelessWidget {
               onPressed: () => Navigator.of(context).push(
                     UpdateScreen.route(context.read<UpdateNotifier>().checker),
                   ),
-              child: const Text('SEE WHAT CHANGED'),
+              child: const Text('See what changed'),
             ),
           ],
         ),
@@ -347,7 +347,7 @@ class SettingsScreen extends StatelessWidget {
         backgroundColor: context.appSurface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
-          'CONFIRM',
+          'Confirm',
           style: context.appTextTheme.labelSmall?.copyWith(
             letterSpacing: 2,
           ),
@@ -356,11 +356,11 @@ class SettingsScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('NO'),
+            child: const Text('No'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('YES', style: TextStyle(color: context.appAccent)),
+            child: Text('Yes', style: TextStyle(color: context.appAccent)),
           ),
         ],
       ),

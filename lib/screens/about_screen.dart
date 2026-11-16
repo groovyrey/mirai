@@ -47,13 +47,13 @@ class AboutScreen extends StatelessWidget {
       Icons.hd_rounded,
       'ZokoAnime',
       'Primary source. Native HLS with subtitles',
-      'PRIMARY',
+      'Primary',
     ),
     (
       Icons.play_circle_outline_rounded,
       'DoodStream',
       'Direct MP4 on your phone, embed player as fallback',
-      'FALLBACK',
+      'Fallback',
     ),
   ];
 
@@ -86,7 +86,7 @@ class AboutScreen extends StatelessWidget {
                   ),
                   const Spacer(),
                   Text(
-                    'ABOUT',
+                    'About',
                     style: context.appTextTheme.labelSmall?.copyWith(
                       color: context.appAccent,
                       letterSpacing: 2,
@@ -98,13 +98,12 @@ class AboutScreen extends StatelessWidget {
               const SizedBox(height: 10),
               const MiraiWordmark(size: 30),
               const SizedBox(height: 24),
-              Container(width: 34, height: 4, color: context.appAccent),
-              const SizedBox(height: 10),
+              const SizedBox(height: 6),
               Text(
                 'Anime, on your terms.',
                 style: context.appTextTheme.displayMedium?.copyWith(
                   color: context.appOnSurface,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                   letterSpacing: -1,
                 ),
               ),

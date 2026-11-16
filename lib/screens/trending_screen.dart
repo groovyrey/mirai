@@ -9,7 +9,7 @@ import 'detail_screen.dart';
 /// A ranked, paged grid of the trending slate. Uses a custom "MIRAIGRID"
 /// counter mode — named after the broadcast grid aesthetic.
 class TrendingScreen extends StatefulWidget {
-  const TrendingScreen({super.key, this.header = 'TRENDING'});
+  const TrendingScreen({super.key, this.header = 'Trending'});
 
   final String header;
 
@@ -81,7 +81,7 @@ class _TrendingScreenState extends State<TrendingScreen> {
               widget.header,
               style: context.appTextTheme.displayMedium?.copyWith(
                 color: context.appOnSurface,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),

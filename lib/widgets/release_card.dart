@@ -50,13 +50,13 @@ class ReleaseCard extends StatelessWidget {
             runSpacing: 8,
             children: [
               ReleaseAction(
-                label: asset == null ? 'RELEASE PAGE' : 'DOWNLOAD',
+                label: asset == null ? 'Release page' : 'Download',
                 onTap: () => onOpen(asset?.url ?? release.url),
                 primary: isNewest,
               ),
               if (release.assets.length > 1)
                 ReleaseAction(
-                  label: 'ALL FILES',
+                  label: 'All files',
                   onTap: () => onOpen(release.url),
                   primary: false,
                 ),
@@ -83,7 +83,7 @@ class ReleaseCard extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: Text(
-              'BETA',
+              'Beta',
               style: context.appTextTheme.labelSmall?.copyWith(
                 color: color,
                 letterSpacing: 1.5,

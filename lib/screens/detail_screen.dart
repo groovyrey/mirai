@@ -134,7 +134,7 @@ class _DetailScreenState extends State<DetailScreen> {
               ),
             ),
             const SizedBox(height: 10),
-            TextButton(onPressed: _load, child: const Text('RETRY')),
+            TextButton(onPressed: _load, child: const Text('Retry')),
           ],
         ),
       ),
@@ -176,11 +176,11 @@ class _DetailScreenState extends State<DetailScreen> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
             child: SectionLabel(
-              text: 'EPISODES',
+              text: 'Episodes',
               onMore: episodes.length > 12
                   ? () => _showEpisodeSearch(context)
                   : null,
-              moreLabel: 'SEARCH',
+              moreLabel: 'Search',
               moreIcon: Icons.search_rounded,
             ),
           ),
@@ -272,7 +272,7 @@ class _DetailScreenState extends State<DetailScreen> {
         item.title,
         style: context.appTextTheme.displayMedium?.copyWith(
           color: context.appOnSurface,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w700,
         ),
       ),
       if (item.originalTitle != null && item.originalTitle != item.title) ...[
@@ -411,7 +411,7 @@ class _DetailScreenState extends State<DetailScreen> {
           ],
           if (hasEps) ...[
             const SizedBox(height: 20),
-            const SectionLabel(text: 'PLAY SOURCE'),
+            const SectionLabel(text: 'Play source'),
             const SizedBox(height: 10),
             Wrap(
               spacing: 8,
@@ -446,6 +446,7 @@ class _DetailScreenState extends State<DetailScreen> {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
+        color: context.appSurface,
         border: Border.all(color: context.appOutline),
         borderRadius: BorderRadius.circular(AppRadius.card),
       ),
@@ -508,7 +509,7 @@ class _DetailScreenState extends State<DetailScreen> {
           border: Border.all(
             color: active ? context.appAccent : context.appOutline,
           ),
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(AppRadius.chip),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -636,7 +637,7 @@ class _DetailScreenState extends State<DetailScreen> {
             ),
           ),
           child: Text(
-            'LOAD $remaining MORE',
+            'Load $remaining more',
             style: context.appTextTheme.labelSmall?.copyWith(
               letterSpacing: 1.5,
             ),
@@ -687,7 +688,7 @@ class _EpisodeRow extends StatelessWidget {
                   ),
                   Expanded(
                     child: Text(
-                      'EP ${episode.ep}',
+                      'Episode ${episode.ep}',
                       style: context.appTextTheme.titleMedium?.copyWith(
                         color: context.appOnSurface,
                       ),
@@ -807,7 +808,7 @@ class _EpisodeSearchSheetState extends State<_EpisodeSearchSheet> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'SEARCH EPISODE',
+                      'Search episode',
                       style: context.appTextTheme.titleMedium?.copyWith(
                         color: context.appOnSurface,
                         fontWeight: FontWeight.w600,
@@ -895,7 +896,7 @@ class _EpisodeSearchSheetState extends State<_EpisodeSearchSheet> {
                                 ),
                                 Expanded(
                                   child: Text(
-                                    'EP ${episode.ep}',
+                                    'Episode ${episode.ep}',
                                     style: context.appTextTheme.titleMedium
                                         ?.copyWith(color: context.appOnSurface),
                                   ),

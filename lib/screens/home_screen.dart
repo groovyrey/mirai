@@ -143,10 +143,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 28, 20, 8),
       child: Text(
-        'WHAT\'S ON\nTONIGHT',
+        'What\'s on\ntonight',
         style: context.appTextTheme.displayMedium?.copyWith(
           color: context.appOnSurface,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
@@ -161,7 +161,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
           child: SectionLabel(
-            text: 'TOP 5',
+            text: 'Top 5',
             onMore: () => _openTrending(context),
           ),
         ),
@@ -194,7 +194,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 26, 20, 12),
-          child: SectionLabel(text: 'RECENTLY ON'),
+          child: SectionLabel(text: 'Recently on'),
         ),
         SizedBox(
           height: 236,
@@ -224,7 +224,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 26, 20, 12),
-          child: SectionLabel(text: 'NEWEST'),
+          child: SectionLabel(text: 'Newest'),
         ),
         SizedBox(
           height: 236,
@@ -254,7 +254,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 26, 20, 12),
-          child: SectionLabel(text: 'CONTINUE WATCHING'),
+          child: SectionLabel(text: 'Continue watching'),
         ),
         SizedBox(
           height: 236,
@@ -287,7 +287,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 26, 20, 12),
-          child: SectionLabel(text: 'YOUR QUEUE'),
+          child: SectionLabel(text: 'Your queue'),
         ),
         SizedBox(
           height: 236,
@@ -320,7 +320,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
           child: Text(
-            'TUNING THE SIGNAL…',
+            'Loading the lineup',
             style: context.appTextTheme.labelSmall?.copyWith(
               color: context.appOnSurfaceVariant,
               letterSpacing: 2,
@@ -408,7 +408,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         builder: (_) => Scaffold(
           backgroundColor: context.appBackground,
           body: TrendingScreen(
-            header: 'TRENDING',
+            header: 'Trending',
           ),
         ),
       ),
@@ -440,8 +440,16 @@ class _ContinueCard extends StatelessWidget {
               children: [
                 AspectRatio(
                   aspectRatio: 2 / 3,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(AppRadius.card),
+                  child: Container(
+                    clipBehavior: Clip.antiAlias,
+                    decoration: BoxDecoration(
+                      color: context.appSurfaceAlt,
+                      borderRadius: BorderRadius.circular(AppRadius.card),
+                    ),
+                    foregroundDecoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(AppRadius.card),
+                      border: Border.all(color: context.appOutline),
+                    ),
                     child: CachedNetworkImage(
                       imageUrl: entry.item.image ?? '',
                       fit: BoxFit.cover,
@@ -539,8 +547,16 @@ class _QueueCard extends StatelessWidget {
               children: [
                 AspectRatio(
                   aspectRatio: 2 / 3,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(AppRadius.card),
+                  child: Container(
+                    clipBehavior: Clip.antiAlias,
+                    decoration: BoxDecoration(
+                      color: context.appSurfaceAlt,
+                      borderRadius: BorderRadius.circular(AppRadius.card),
+                    ),
+                    foregroundDecoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(AppRadius.card),
+                      border: Border.all(color: context.appOutline),
+                    ),
                     child: CachedNetworkImage(
                       imageUrl: detail.item.image ?? '',
                       fit: BoxFit.cover,

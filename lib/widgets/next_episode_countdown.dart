@@ -70,6 +70,7 @@ class _NextEpisodeCountdownState extends State<NextEpisodeCountdown> {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
+        color: context.appSurface,
         border: Border.all(color: context.appOutline),
         borderRadius: BorderRadius.circular(AppRadius.card),
       ),
@@ -78,7 +79,7 @@ class _NextEpisodeCountdownState extends State<NextEpisodeCountdown> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'NEXT EPISODE',
+            'Next episode',
             style: context.appTextTheme.labelSmall?.copyWith(
               color: context.appOnSurfaceVariant,
               letterSpacing: 2,
@@ -89,7 +90,7 @@ class _NextEpisodeCountdownState extends State<NextEpisodeCountdown> {
             countdown,
             style: context.appTextTheme.displayMedium?.copyWith(
               color: context.appAccent,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 4),

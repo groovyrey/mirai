@@ -143,7 +143,7 @@ class _UpdateScreenState extends State<UpdateScreen> {
                     if (_history.isNotEmpty) ...[
                       const SizedBox(height: _skippedSpacing),
                       Text(
-                        'ALL RELEASES',
+                        'All releases',
                         style: context.appTextTheme.labelSmall?.copyWith(
                           color: context.appOnSurfaceVariant,
                           letterSpacing: 1.5,
@@ -176,7 +176,7 @@ class _UpdateScreenState extends State<UpdateScreen> {
         ),
         const Spacer(),
         Text(
-          'UPDATES',
+          'Updates',
           style: context.appTextTheme.labelSmall?.copyWith(
             color: context.appAccent,
             letterSpacing: 2,
@@ -205,7 +205,7 @@ class _UpdateScreenState extends State<UpdateScreen> {
               : 'Update available',
           style: context.appTextTheme.displayMedium?.copyWith(
             color: context.appOnSurface,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
             letterSpacing: -1,
           ),
         ),

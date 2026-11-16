@@ -134,51 +134,47 @@ class _Header extends StatelessWidget {
     // switch rebuilds it.
     context.watch<AppState>();
 
-    return ColoredBox(
-      color: context.appBackground,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: context.appSurface,
+        border: Border(bottom: BorderSide(color: context.appOutline)),
+      ),
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
-          child: Column(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+          child: Row(
             children: [
-              Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Scaffold.of(context).openDrawer(),
-                    padding: EdgeInsets.zero,
-                    constraints:
-                        const BoxConstraints(minWidth: 36, minHeight: 36),
-                    icon: Icon(
-                      Icons.menu_rounded,
-                      color: context.appOnSurfaceVariant,
-                    ),
-                    tooltip: 'Menu',
-                  ),
-                  const Spacer(),
-                  const MiraiWordmark(size: 20),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: () => onTab(_AppShellState._settingsIndex),
-                    child: FutureBuilder<String>(
-                      future: _version(),
-                      builder: (context, snap) {
-                        final version = snap.data ?? '';
-                        if (version.isEmpty) return const SizedBox.shrink();
-                        return Text(
-                          'v$version',
-                          style: context.appTextTheme.labelSmall?.copyWith(
-                            fontSize: 10,
-                            letterSpacing: 1.5,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
+              IconButton(
+                onPressed: () => Scaffold.of(context).openDrawer(),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                icon: Icon(
+                  Icons.menu_rounded,
+                  color: context.appOnSurfaceVariant,
+                ),
+                tooltip: 'Menu',
               ),
-              const SizedBox(height: 14),
-              const Divider(height: 1, thickness: 1),
+              const Spacer(),
+              const MiraiWordmark(size: 20),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => onTab(_AppShellState._settingsIndex),
+                child: FutureBuilder<String>(
+                  future: _version(),
+                  builder: (context, snap) {
+                    final version = snap.data ?? '';
+                    if (version.isEmpty) return const SizedBox.shrink();
+                    return Text(
+                      'v$version',
+                      style: context.appTextTheme.labelSmall?.copyWith(
+                        fontSize: 10,
+                        letterSpacing: 0.8,
+                      ),
+                    );
+                  },
+                ),
+              ),
             ],
           ),
         ),
@@ -204,7 +200,7 @@ class _Drawer extends StatelessWidget {
         : null;
 
     return Drawer(
-      backgroundColor: context.appBackground,
+      backgroundColor: context.appSurface,
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -269,25 +265,23 @@ class _DrawerItem extends StatelessWidget {
     final activeColor =
         selected ? context.appAccent : context.appOnSurfaceVariant;
     return Material(
-      color: Colors.transparent,
+      color: selected ? context.appAccentSoft : Colors.transparent,
       child: InkWell(
         onTap: () {
           Navigator.of(context).pop();
           onTap();
         },
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 13),
           child: Row(
             children: [
               Icon(icon, size: 20, color: selected ? activeColor : null),
-              const SizedBox(width: 16),
+              const SizedBox(width: 14),
               Text(
-                label.toUpperCase(),
-                style: context.appTextTheme.labelSmall?.copyWith(
-                  fontSize: 12,
-                  letterSpacing: 1.5,
+                label,
+                style: context.appTextTheme.labelLarge?.copyWith(
                   color: activeColor,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                 ),
               ),
             ],

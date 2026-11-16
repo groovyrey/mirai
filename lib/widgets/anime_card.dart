@@ -24,8 +24,16 @@ class AnimeCard extends StatelessWidget {
             children: [
               AspectRatio(
                 aspectRatio: 2 / 3,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(AppRadius.card),
+                child: Container(
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    color: context.appSurfaceAlt,
+                    borderRadius: BorderRadius.circular(AppRadius.card),
+                  ),
+                  foregroundDecoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(AppRadius.card),
+                    border: Border.all(color: context.appOutline),
+                  ),
                   child: item.hasImage
                       ? CachedNetworkImage(
                           imageUrl: item.image!,
@@ -43,7 +51,7 @@ class AnimeCard extends StatelessWidget {
                     rank.toString().padLeft(2, '0'),
                     style: context.appTextTheme.displayMedium?.copyWith(
                       fontSize: 34,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       height: 0.9,
                       color: context.appAccent,
                       shadows: const [
@@ -65,12 +73,12 @@ class AnimeCard extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            [item.type, item.rating].where((s) => s?.isNotEmpty ?? false).join(' · '),
+            [item.type, item.rating].where((s) => s?.isNotEmpty ?? false).join('  '),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: context.appTextTheme.labelSmall?.copyWith(
               fontSize: 10,
-              letterSpacing: 0.6,
+              letterSpacing: 0.4,
             ),
           ),
         ],
@@ -100,7 +108,7 @@ class SectionLabel extends StatelessWidget {
     super.key,
     required this.text,
     this.onMore,
-    this.moreLabel = 'VIEW ALL',
+    this.moreLabel = 'View all',
     this.moreIcon,
   });
 
@@ -113,20 +121,12 @@ class SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Container(
-          width: 4,
-          height: 12,
-          decoration: BoxDecoration(
-            color: context.appAccent,
-            borderRadius: BorderRadius.circular(1),
-          ),
-        ),
-        const SizedBox(width: 8),
         Text(
           text,
-          style: context.appTextTheme.labelSmall?.copyWith(
+          style: context.appTextTheme.titleMedium?.copyWith(
             color: context.appOnSurface,
-            letterSpacing: 2,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0,
           ),
         ),
         const Spacer(),
@@ -172,8 +172,16 @@ class LeadCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppRadius.card),
+      child: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: context.appSurfaceAlt,
+          borderRadius: BorderRadius.circular(AppRadius.card),
+        ),
+        foregroundDecoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppRadius.card),
+          border: Border.all(color: context.appOutline),
+        ),
         child: AspectRatio(
           aspectRatio: 16 / 10,
           child: Stack(
@@ -206,7 +214,7 @@ class LeadCard extends StatelessWidget {
                   rank.toString().padLeft(2, '0'),
                   style: context.appTextTheme.displayMedium?.copyWith(
                     fontSize: 34,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     height: 0.9,
                     color: context.appAccent,
                     shadows: const [
@@ -235,9 +243,11 @@ class LeadCard extends StatelessWidget {
                     Text(
                       [item.type, item.rating]
                           .where((s) => s?.isNotEmpty ?? false)
-                          .join(' · '),
+                          .join('  '),
                       style: context.appTextTheme.labelSmall?.copyWith(
+                        fontSize: 10,
                         color: Colors.white70,
+                        letterSpacing: 0.4,
                       ),
                     ),
                   ],

@@ -29,10 +29,10 @@ class SavedScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 4),
             child: Text(
-              'MY LIST',
+              'My list',
               style: context.appTextTheme.displayMedium?.copyWith(
                 color: context.appOnSurface,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -116,7 +116,7 @@ class _SavedBodyState extends State<_SavedBody> with WidgetsBindingObserver {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'NOTHING SAVED YET.',
+                  'Nothing saved yet.',
                   style: context.appTextTheme.titleMedium?.copyWith(
                     color: context.appOnSurface,
                   ),
@@ -132,7 +132,7 @@ class _SavedBodyState extends State<_SavedBody> with WidgetsBindingObserver {
         if (history.isNotEmpty) ...[
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-            child: SectionLabel(text: 'CONTINUE WATCHING'),
+            child: SectionLabel(text: 'Continue watching'),
           ),
           for (final entry in history.take(8))
             _ContinueTile(entry: entry, onTap: () => _resume(context, entry)),
@@ -140,7 +140,7 @@ class _SavedBodyState extends State<_SavedBody> with WidgetsBindingObserver {
         if (saved.isNotEmpty) ...[
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-            child: SectionLabel(text: 'IN THE QUEUE'),
+            child: SectionLabel(text: 'In the queue'),
           ),
           for (final detail in saved.take(60)) _SavedTile(detail: detail),
         ],
@@ -295,8 +295,8 @@ class _SavedTile extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     '${detail.subEps > 0 ? 'S${detail.subEps}' : ''}'
-                    '${detail.dubEps > 0 ? ' · D${detail.dubEps}' : ''}'
-                    '${detail.episodeCount > 0 ? ' · ${detail.episodeCount} EPS' : ''}',
+                    '${detail.dubEps > 0 ? '  D${detail.dubEps}' : ''}'
+                    '${detail.episodeCount > 0 ? '  ${detail.episodeCount} EPS' : ''}',
                     style: context.appTextTheme.labelSmall?.copyWith(
                       fontSize: 10,
                     ),
