@@ -11,6 +11,7 @@ import '../state/app_state.dart';
 import '../state/update_notifier.dart';
 import '../theme/app_theme.dart';
 import '../widgets/anime_card.dart';
+import '../widgets/app_modal.dart';
 import 'update_screen.dart';
 
 /// Settings: app preferences and links.
@@ -235,86 +236,65 @@ class SettingsScreen extends StatelessWidget {
   }
 
   Future<void> _pickAudio(BuildContext context, AppState state) async {
-    final choice = await showModalBottomSheet<AudioMode>(
-      context: context,
-      backgroundColor: context.appSurface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    final choice = await AppBottomSheet<AudioMode>(
+      builder: (sheetContext) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            title: const Text('Sub first'),
+            onTap: () => Navigator.pop(sheetContext, AudioMode.sub),
+          ),
+          ListTile(
+            title: const Text('Dub first'),
+            onTap: () => Navigator.pop(sheetContext, AudioMode.dub),
+          ),
+        ],
       ),
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: const Text('Sub first'),
-              onTap: () => Navigator.pop(context, AudioMode.sub),
-            ),
-            ListTile(
-              title: const Text('Dub first'),
-              onTap: () => Navigator.pop(context, AudioMode.dub),
-            ),
-          ],
-        ),
-      ),
-    );
+    ).show(context);
     if (choice != null) await state.setAudioMode(choice);
   }
 
   Future<void> _pickSubtitleColor(BuildContext context, AppState state) async {
-    final choice = await showModalBottomSheet<SubtitleColor>(
-      context: context,
-      backgroundColor: context.appSurface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final color in SubtitleColor.values)
-              ListTile(
-                leading: Container(
-                  width: 18,
-                  height: 18,
-                  decoration: BoxDecoration(
-                    color: color.color,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: context.appOutline),
-                  ),
+    final choice = await AppBottomSheet<SubtitleColor>(
+      builder: (sheetContext) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final color in SubtitleColor.values)
+            ListTile(
+              leading: Container(
+                width: 18,
+                height: 18,
+                decoration: BoxDecoration(
+                  color: color.color,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: context.appOutline),
                 ),
-                title: Text(color.label),
-                trailing: state.subtitleColor == color
-                    ? Icon(Icons.check_rounded, color: context.appAccent)
-                    : null,
-                onTap: () => Navigator.pop(context, color),
               ),
-          ],
-        ),
+              title: Text(color.label),
+              trailing: state.subtitleColor == color
+                  ? Icon(Icons.check_rounded, color: context.appAccent)
+                  : null,
+              onTap: () => Navigator.pop(sheetContext, color),
+            ),
+        ],
       ),
-    );
+    ).show(context);
     if (choice != null) await state.setSubtitleColor(choice);
   }
 
   Future<void> _pickChannel(BuildContext context, AppState state) async {
-    final choice = await showModalBottomSheet<UpdateChannel>(
-      context: context,
-      backgroundColor: context.appSurface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    final choice = await AppBottomSheet<UpdateChannel>(
+      builder: (sheetContext) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final channel in UpdateChannel.values)
+            ListTile(
+              title: Text(channel.label),
+              onTap: () => Navigator.pop(sheetContext, channel),
+            ),
+        ],
       ),
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final channel in UpdateChannel.values)
-              ListTile(
-                title: Text(channel.label),
-                onTap: () => Navigator.pop(context, channel),
-              ),
-          ],
-        ),
-      ),
-    );
+    ).show(context);
     if (choice != null) {
       await state.setUpdateChannel(choice);
       if (!context.mounted) return;
@@ -341,30 +321,7 @@ class SettingsScreen extends StatelessWidget {
   }
 
   Future<bool> _confirm(BuildContext context, String message) async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: context.appSurface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(
-          'Confirm',
-          style: context.appTextTheme.labelSmall?.copyWith(
-            letterSpacing: 2,
-          ),
-        ),
-        content: Text(message, style: context.appTextTheme.bodyLarge),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('No'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('Yes', style: TextStyle(color: context.appAccent)),
-          ),
-        ],
-      ),
-    );
+    final result = await AppConfirmDialog(message: message).show(context);
     return result ?? false;
   }
 

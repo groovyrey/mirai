@@ -4,11 +4,11 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../theme/app_theme.dart';
 import '../widgets/mirai_wordmark.dart';
+import 'donate_screen.dart';
 
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
 
-  static const _sourceUrl = 'https://github.com/groovyrey/mirai';
   static const _email = 'reymartcenteno03@gmail.com';
 
   Future<void> _open(String url) async {
@@ -66,9 +66,14 @@ class AboutScreen extends StatelessWidget {
             const SizedBox(height: 28),
             Divider(height: 1, color: context.appOutline),
             _LinkRow(
-              label: 'Source',
-              value: 'GitHub',
-              onTap: () => _open(_sourceUrl),
+              label: 'Support',
+              value: 'Donate with GCash',
+              trailing: Icons.chevron_right_rounded,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const DonateScreen()),
+                );
+              },
             ),
             Divider(height: 1, color: context.appOutline),
             _LinkRow(
@@ -99,10 +104,12 @@ class _LinkRow extends StatelessWidget {
     required this.label,
     required this.value,
     required this.onTap,
+    this.trailing = Icons.arrow_outward_rounded,
   });
 
   final String label;
   final String value;
+  final IconData trailing;
   final VoidCallback onTap;
 
   @override
@@ -133,7 +140,7 @@ class _LinkRow extends StatelessWidget {
             ),
             const SizedBox(width: 6),
             Icon(
-              Icons.arrow_outward_rounded,
+              trailing,
               size: 16,
               color: context.appOnSurfaceVariant,
             ),

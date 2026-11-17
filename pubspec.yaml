@@ -34,4 +34,5 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - assets/IMG_0965.jpeg
     - assets/logo/mirai_logo.png

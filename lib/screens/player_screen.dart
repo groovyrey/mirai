@@ -18,6 +18,7 @@ import '../services/watch_history.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/embed_ad_guard.dart';
+import '../widgets/player_settings/index.dart';
 
 /// Immersive full-screen player. Two sources: AniWatch's ZokoAnime server plays
 /// natively through media_kit (its VTT subtitle tracks are selectable), and
@@ -135,7 +136,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   double _defaultRate = 1.0;
   bool _keepAwake = true;
   double _subtitleSize = 22;
-  Color _subtitleColor = Colors.white;
+  SubtitleColor _subtitleColor = SubtitleColor.white;
   double _subtitleBackground = 0.5;
 
   // Resume / progress tracking.
@@ -160,7 +161,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _defaultRate = app.defaultSpeed;
     _keepAwake = app.keepAwake;
     _subtitleSize = app.subtitleSize;
-    _subtitleColor = app.subtitleColor.color;
+    _subtitleColor = app.subtitleColor;
     _subtitleBackground = app.subtitleBackground;
     _sourceKind = widget.sourceKind ?? 'aniwatch';
     _sv = widget.sv;
@@ -885,112 +886,107 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
   }
 
-  void _showSourceSheet(BuildContext context) {
-    final current = _currentSourceName();
-    final items = <({String name, String label, bool current})>[
-      (
-        name: 'aniwatch',
-        label: 'ZokoAnime, primary',
-        current: current == 'aniwatch',
-      ),
-      (
-        name: 'aniwaves',
+  void _showPlayerSettings(BuildContext context) {
+    final sourceOptions = <PlayerSettingsOption<String>>[
+      const PlayerSettingsOption(value: 'aniwatch', label: 'ZokoAnime, primary'),
+      const PlayerSettingsOption(
+        value: 'aniwaves',
         label: 'Aniwaves, English sub',
-        current: current == 'aniwaves',
       ),
-      (
-        name: 'aniwaves:12',
+      const PlayerSettingsOption(
+        value: 'aniwaves:12',
         label: 'MyCloud, English soft sub',
-        current: current == 'aniwaves:12',
       ),
-      (
-        name: 'aniwaves:14',
-        label: 'DatSaV, MP4',
-        current: current == 'aniwaves:14',
-      ),
-      (
-        name: 'aniwaves:4',
-        label: 'Vidplay, HLS',
-        current: current == 'aniwaves:4',
-      ),
-      (
-        name: 'aniwaves:2',
-        label: 'DoodStream',
-        current: current == 'aniwaves:2',
-      ),
+      const PlayerSettingsOption(value: 'aniwaves:14', label: 'DatSaV, MP4'),
+      const PlayerSettingsOption(value: 'aniwaves:4', label: 'Vidplay, HLS'),
+      const PlayerSettingsOption(value: 'aniwaves:2', label: 'DoodStream'),
     ];
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: context.appSurface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (sheetContext) => SafeArea(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(sheetContext).size.height * 0.65,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Switch source',
-                    style: context.appTextTheme.titleMedium?.copyWith(
-                      color: context.appOnSurface,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-              Flexible(
-                child: ListView(
-                  shrinkWrap: true,
-                  padding: const EdgeInsets.only(bottom: 4),
-                  children: [
-                    for (final item in items)
-                      ListTile(
-                        selected: item.current,
-                        selectedTileColor: context.appAccentSoft,
-                        selectedColor: context.appAccent,
-                        leading: Icon(
-                          item.current
-                              ? PhosphorIcons.checkCircle()
-                              : PhosphorIcons.playCircle(),
-                          color: item.current
-                              ? context.appAccent
-                              : context.appOnSurfaceVariant,
-                        ),
-                        title: Text(
-                          item.label,
-                          style: context.appTextTheme.bodyMedium?.copyWith(
-                            color: item.current
-                                ? context.appAccent
-                                : context.appOnSurface,
-                            fontWeight: item.current
-                                ? FontWeight.w600
-                                : FontWeight.w400,
-                          ),
-                        ),
-                        onTap: () {
-                          Navigator.pop(sheetContext);
-                          if (!item.current) _switchSource(item.name);
-                        },
-                      ),
-                    const SizedBox(height: 8),
-                  ],
-                ),
-              ),
-            ],
-          ),
+    final speedOptions = <PlayerSettingsOption<double>>[
+      for (final speed in const [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0])
+        PlayerSettingsOption(
+          value: speed,
+          label: '${speed.toStringAsFixed(2)}x',
         ),
-      ),
+    ];
+    final speed = _player?.state.rate ?? _defaultRate;
+    if (!speedOptions.any((option) => option.value == speed)) {
+      speedOptions
+        ..add(
+          PlayerSettingsOption(value: speed, label: '${speed.toStringAsFixed(2)}x'),
+        )
+        ..sort((a, b) => a.value.compareTo(b.value));
+    }
+    final subtitleOptions = <PlayerSettingsOption<String?>>[
+      const PlayerSettingsOption(value: null, label: 'Off'),
+      for (final track in _subtitles)
+        PlayerSettingsOption(value: track.url, label: track.label),
+    ];
+    final subtitleUrl = subtitleOptions.any(
+          (option) => option.value == _activeSubtitleUrl,
+        )
+        ? _activeSubtitleUrl
+        : null;
+    unawaited(
+      PlayerSettingsDialog(
+        sources: sourceOptions,
+        source: _currentSourceName() ?? sourceOptions.first.value,
+        onSourceChanged: (source) {
+          subtitleOptions
+            ..clear()
+            ..add(const PlayerSettingsOption(value: null, label: 'Off'));
+          _switchSource(source);
+        },
+        speeds: speedOptions,
+        speed: speed,
+        onSpeedChanged: _applyPlaybackSpeed,
+        subtitles: subtitleOptions,
+        subtitleUrl: subtitleUrl,
+        onSubtitleChanged: _applySubtitleSelection,
+        subtitleSize: _subtitleSize,
+        onSubtitleSizeChanged: _applySubtitleSize,
+        subtitleColor: _subtitleColor,
+        onSubtitleColorChanged: _applySubtitleColor,
+        subtitleBackground: _subtitleBackground,
+        onSubtitleBackgroundChanged: _applySubtitleBackground,
+      ).show(context),
     );
+  }
+
+  void _applyPlaybackSpeed(double speed) {
+    _defaultRate = speed;
+    final player = _player;
+    if (player != null) unawaited(player.setRate(speed));
+  }
+
+  void _applySubtitleSelection(String? url) {
+    final player = _player;
+    if (player == null) return;
+    if (url == null) {
+      unawaited(_clearSubtitle(player));
+      return;
+    }
+    for (final track in _subtitles) {
+      if (track.url == url) {
+        unawaited(_applySubtitle(player, track, force: true));
+        return;
+      }
+    }
+    unawaited(_clearSubtitle(player));
+  }
+
+  void _applySubtitleSize(double size) {
+    setState(() => _subtitleSize = size);
+    unawaited(context.read<AppState>().setSubtitleSize(size));
+  }
+
+  void _applySubtitleColor(SubtitleColor color) {
+    setState(() => _subtitleColor = color);
+    unawaited(context.read<AppState>().setSubtitleColor(color));
+  }
+
+  void _applySubtitleBackground(double opacity) {
+    setState(() => _subtitleBackground = opacity);
+    unawaited(context.read<AppState>().setSubtitleBackground(opacity));
   }
 
   WebViewController _buildController(String url) {
@@ -1084,9 +1080,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
           ),
           Row(
             children: [
-              _speedButton(context, player),
-              const SizedBox(width: 4),
-              _subtitleButton(context, player),
               const Spacer(),
               Text(
                 _sourceLabel,
@@ -1095,6 +1088,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   letterSpacing: 1.2,
                 ),
               ),
+              const Spacer(),
             ],
           ),
         ],
@@ -1258,168 +1252,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
-  void _showSpeedMenu(BuildContext context, Player player) {
-    const speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: context.appSurface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final s in speeds)
-              ListTile(
-                title: Text(
-                  '${s.toStringAsFixed(2)}x',
-                  style: context.appTextTheme.bodyMedium?.copyWith(
-                    color: context.appOnSurface,
-                  ),
-                ),
-                trailing: player.state.rate == s
-                    ? Icon(PhosphorIcons.check(), color: context.appAccent)
-                    : null,
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  unawaited(player.setRate(s));
-                },
-              ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _speedButton(BuildContext context, Player player) {
-    return StreamBuilder<double>(
-      stream: player.stream.rate,
-      initialData: player.state.rate,
-      builder: (context, snap) {
-        final rate = snap.data ?? 1.0;
-        return InkWell(
-          onTap: () => _showSpeedMenu(context, player),
-          borderRadius: BorderRadius.circular(6),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Text(
-              '${rate.toStringAsFixed(2)}x',
-              style: context.appTextTheme.labelMedium?.copyWith(
-                color: Colors.white70,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   /// Provider label shown at the right of the control bar.
   String get _sourceLabel {
     if (_sourceKind == 'aniwatch') return 'ZokoAnime';
     return _activeServerName ?? 'Aniwaves';
-  }
-
-  /// 'CC' button; only shown when the current source ships subtitle tracks.
-  Widget _subtitleButton(BuildContext context, Player player) {
-    if (_subtitles.isEmpty) return const SizedBox.shrink();
-    return InkWell(
-      onTap: () => _showSubtitleSheet(context, player),
-      borderRadius: BorderRadius.circular(6),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Text(
-          'CC',
-          style: context.appTextTheme.labelMedium?.copyWith(
-            color: Colors.white70,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Subtitle picker mirroring Kumi's player: an Off row plus one row per
-  /// track, with a check on the active selection.
-  void _showSubtitleSheet(BuildContext context, Player player) {
-    final items = <({bool isOff, String label, ResolvedSubtitle? track})>[
-      (isOff: true, label: 'Off', track: null),
-      for (final track in _subtitles)
-        (isOff: false, label: track.label, track: track),
-    ];
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: context.appSurface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (sheetContext) => SafeArea(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(sheetContext).size.height * 0.65,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Subtitles',
-                    style: context.appTextTheme.titleMedium?.copyWith(
-                      color: context.appOnSurface,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-              Flexible(
-                child: ListView(
-                  shrinkWrap: true,
-                  padding: const EdgeInsets.only(bottom: 4),
-                  children: [
-                    for (final item in items)
-                      ListTile(
-                        title: Text(
-                          item.label,
-                          style: context.appTextTheme.bodyMedium?.copyWith(
-                            color: context.appOnSurface,
-                          ),
-                        ),
-                        trailing: _activeSubtitleUrl == null && item.isOff
-                            ? Icon(PhosphorIcons.check(),
-                                color: context.appAccent)
-                            : (item.track != null &&
-                                    item.track!.url == _activeSubtitleUrl)
-                                ? Icon(PhosphorIcons.check(),
-                                    color: context.appAccent)
-                                : null,
-                        onTap: () {
-                          Navigator.pop(sheetContext);
-                          final track = item.track;
-                          if (track == null) {
-                            unawaited(_clearSubtitle(player));
-                          } else {
-                            unawaited(
-                                _applySubtitle(player, track, force: true));
-                          }
-                        },
-                      ),
-                    const SizedBox(height: 8),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   Widget _videoBody() {
@@ -1469,7 +1305,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
               fontSize: _subtitleSize,
               height: 1.3,
               fontWeight: FontWeight.w600,
-              color: _subtitleColor,
+              color: _subtitleColor.color,
               backgroundColor:
                   Colors.black.withValues(alpha: _subtitleBackground),
             ),
@@ -1724,10 +1560,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
             ),
           ),
           IconButton(
-            onPressed: () => _showSourceSheet(context),
-            tooltip: 'Switch source',
+            onPressed: () => _showPlayerSettings(context),
+            tooltip: 'Player settings',
             icon: Icon(
-              PhosphorIcons.arrowsClockwise(),
+              Icons.settings_rounded,
               color: Colors.white,
               size: 24,
             ),
