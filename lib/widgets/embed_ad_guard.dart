@@ -28,8 +28,13 @@ class EmbedAdGuard {
     'juicyads.com', 'onclickads.net', 'trafficjunky.net', 'adnxs.com',
     'pubmatic.com', 'criteo.com', 'outbrain.com', 'taboola.com'
   ];
-  var MARKER = /(^|[^\w-])(ad|ads|advert|adblock|adcontainer|banner|popup|interstitial)(?=[^\w-]|$)/i;
-  var MAX_Z = 2000000000;
+  var MARKER = /(^|[^a-z0-9])(ad|ads|advert|advertisement|adblock|adcontainer|banner|popup|interstitial|sponsor|sponsored)(?![a-z0-9])/i;
+  var MAX_Z = 100000;
+  var AD_CSS = '[class*="ad-overlay"],[class*="ad-layer"],[class*="ad-container"],[class*="ad-wrapper"],' +
+    '[class*="ad-slot"],[class*="ad-placeholder"],[id*="ad-overlay"],[id*="ad-layer"],' +
+    '[id*="ad-container"],[id*="ad-wrapper"],[id*="ad-slot"],[id*="ad-placeholder"],' +
+    '[class*="sponsor"],[id*="sponsor"],[class~="ad"],[class~="ads"],[id="ad"],[id="ads"]' +
+    '{display:none!important;visibility:hidden!important;pointer-events:none!important}';
 
   function isAdHost(host) {
     for (var i = 0; i < AD_HOSTS.length; i++) {
@@ -57,7 +62,8 @@ class EmbedAdGuard {
     var els = document.querySelectorAll(
       '[id*="ad"], [class*="ad"], [id*="banner"], [class*="banner"], ' +
       '[id*="popup"], [class*="popup"], [id*="interstitial"], [class*="interstitial"], ' +
-      '[data-ad], [aria-label*="ad"], [aria-label*="Advertisement"], [role="dialog"]'
+      '[id*="sponsor"], [class*="sponsor"], [data-ad], [aria-label*="ad"], ' +
+      '[aria-label*="Advertisement"], [role="dialog"]'
     );
     for (var i = 0; i < els.length; i++) {
       var el = els[i];
@@ -96,8 +102,36 @@ class EmbedAdGuard {
     }
   }
 
+  function stripAdScripts() {
+    var scripts = document.querySelectorAll('script[src]');
+    for (var i = 0; i < scripts.length; i++) {
+      var src = scripts[i].getAttribute('src') || '';
+      var host = '';
+      try {
+        host = new URL(src, location.href).host.toLowerCase();
+      } catch (e) { continue; }
+      var path = '';
+      try {
+        path = new URL(src, location.href).pathname.toLowerCase();
+      } catch (e) {}
+      if (isAdHost(host) || /(?:^|[\/_.-])ads?(?:[\/_.-]|$)/.test(path)) {
+        if (scripts[i].parentNode) scripts[i].remove();
+      }
+    }
+  }
+
+  function installCss() {
+    if (document.getElementById('__mirai_ad_css')) return;
+    var style = document.createElement('style');
+    style.id = '__mirai_ad_css';
+    style.textContent = AD_CSS;
+    (document.head || document.documentElement).appendChild(style);
+  }
+
   function strip() {
     try {
+      installCss();
+      stripAdScripts();
       stripAdFrames();
       stripAdLayers();
       stripFraudLayers();

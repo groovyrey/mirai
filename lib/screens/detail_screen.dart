@@ -13,9 +13,8 @@ import '../widgets/anime_card.dart';
 import '../widgets/next_episode_countdown.dart';
 import 'player_screen.dart';
 
-/// The two playback sources offered for a title. ZokoAnime (AniWatch's mirror)
-/// plays natively through media_kit and is the primary/default; DoodStream is
-/// resolved to a direct MP4 on the phone, with its embed page as a fallback.
+/// Legacy per-title source preference. The item page no longer exposes a
+/// source picker; source selection now lives in the player's source sheet.
 enum _PlaySource { zoko, dood }
 
 /// Maps a persisted source preference (0 = Aniwaves, anything else or unset =
@@ -171,7 +170,7 @@ class _DetailScreenState extends State<DetailScreen> {
             ),
           ],
         ),
-        SliverToBoxAdapter(child: _summary(context, item, detail, app)),
+        SliverToBoxAdapter(child: _summary(context, item, detail)),
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
@@ -232,13 +231,11 @@ class _DetailScreenState extends State<DetailScreen> {
   BuildContext context,
   AnimeItem item,
   AnimeDetail detail,
-  AppState app,
 ) {
     final hasSub = detail.subEps > 0;
     final hasDub = detail.dubEps > 0;
     final maxEp = detail.subEps > detail.dubEps ? detail.subEps : detail.dubEps;
     final episodeCount = detail.episodeCount;
-    final prefSv = app.preferredSv(item.id.toString());
     final children = <Widget>[
       if (detail.coverUrl != null && detail.coverUrl!.isNotEmpty) ...[
         ClipRRect(
@@ -388,7 +385,6 @@ class _DetailScreenState extends State<DetailScreen> {
         ),
     ];
 
-    final hasEps = detail.episodes.isNotEmpty;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
       child: Column(
@@ -407,31 +403,6 @@ class _DetailScreenState extends State<DetailScreen> {
             NextEpisodeCountdown(
               broadcast: detail.broadcast!,
               status: detail.status!,
-            ),
-          ],
-          if (hasEps) ...[
-            const SizedBox(height: 20),
-            const SectionLabel(text: 'Play source'),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _sourceChip(
-                  context,
-                  item,
-                  source: _PlaySource.zoko,
-                  label: 'ZokoAnime',
-                  active: prefSv != 0,
-                ),
-                _sourceChip(
-                  context,
-                  item,
-                  source: _PlaySource.dood,
-                  label: 'Aniwaves',
-                  active: prefSv == 0,
-                ),
-              ],
             ),
           ],
         ],
@@ -491,60 +462,6 @@ class _DetailScreenState extends State<DetailScreen> {
         ],
       ),
     );
-  }
-
-  Widget _sourceChip(
-    BuildContext context,
-    AnimeItem item, {
-    required _PlaySource source,
-    required String label,
-    required bool active,
-  }) {
-    return GestureDetector(
-      onTap: () => _selectSource(context, item, source),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: active ? context.appAccent : Colors.transparent,
-          border: Border.all(
-            color: active ? context.appAccent : context.appOutline,
-          ),
-          borderRadius: BorderRadius.circular(AppRadius.chip),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.play_arrow_rounded,
-              size: 15,
-              color: active ? context.appOnAccent : context.appAccent,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: context.appTextTheme.labelSmall?.copyWith(
-                fontSize: 11,
-                letterSpacing: 0.4,
-                color: active ? context.appOnAccent : context.appOnSurface,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Pins the source choice for this anime (0 = Aniwaves, unset / 1 =
-  /// ZokoAnime native) and plays the first available episode so the choice is
-  /// immediately felt.
-  void _selectSource(BuildContext context, AnimeItem item, _PlaySource source) {
-    final app = context.read<AppState>();
-    final dood = source == _PlaySource.dood;
-    app.setPreferredSv(item.id.toString(), dood ? 0 : 1);
-    final episodes = _detail!.episodes;
-    if (episodes.isEmpty) return;
-    _play(context, item, episodes.first, app.audioMode == AudioMode.dub,
-        source: source);
   }
 
   IconData _statusIcon(String status) {
