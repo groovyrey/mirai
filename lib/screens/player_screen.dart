@@ -18,6 +18,7 @@ import '../services/watch_history.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/embed_ad_guard.dart';
+import '../widgets/episode_selector/index.dart';
 import '../widgets/player_settings/index.dart';
 
 /// Immersive full-screen player. Two sources: AniWatch's ZokoAnime server plays
@@ -130,6 +131,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   /// in place when the user steps to a neighbour, so the route (and its
   /// transition) never changes, only the video does.
   late int _ep;
+  late bool _dub;
 
   // Settings snapshot taken when the player opens.
   bool _hardwareDecode = false;
@@ -166,6 +168,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _sourceKind = widget.sourceKind ?? 'aniwatch';
     _sv = widget.sv;
     _ep = widget.ep;
+    _dub = _dub;
     _embed = widget.embed;
     unawaited(_bootstrap());
   }
@@ -234,7 +237,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     await WatchHistory.instance.update(
       item: widget.item,
       ep: _ep,
-      dub: widget.dub,
+      dub: _dub,
       position: position,
       duration: _player?.state.duration ?? Duration.zero,
     );
@@ -302,7 +305,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     Episode? fallback;
     for (final e in episodes) {
       if (dir < 0 ? e.ep < current : e.ep > current) {
-        final sameTrack = widget.dub ? e.dub : e.sub;
+        final sameTrack = _dub ? e.dub : e.sub;
         if (sameTrack &&
             (best == null ||
                 (dir < 0 ? e.ep > best.ep : e.ep < best.ep))) {
@@ -320,8 +323,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
   /// Steps to the neighbouring episode in place: the same screen, source and
   /// audio track stay put, only the video reloads. A route push would slide in
   /// a new screen and feel like navigation instead of a channel change.
-  Future<void> _switchEpisode(Episode target) async {
-    if (target.ep == _ep) return;
+  Future<void> _switchEpisode(Episode target, {bool? dub}) async {
+    final nextDub = dub ?? _dub;
+    if (target.ep == _ep && nextDub == _dub) return;
     _hideTimer?.cancel();
     _stopStallWatchdog();
     _stopReadyWatch();
@@ -339,6 +343,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       _subtitles = const [];
       _activeSubtitleUrl = null;
       _ep = target.ep;
+      _dub = nextDub;
     });
     _errorSub = null;
     _lastEmbedUrl = null;
@@ -411,7 +416,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       final source = await _resolver.resolveAniwatch(
         widget.item,
         _ep,
-        dub: widget.dub,
+        dub: _dub,
       );
       if (!mounted) return;
       if (await _playNative(source)) return;
@@ -823,7 +828,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       final source = await _resolver.resolve(
         widget.item,
         _ep,
-        dub: widget.dub,
+        dub: _dub,
         sv: _sv,
         proxy: true,
         embed: _embed,
@@ -884,6 +889,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
       debugPrint('[player] client dood native failed: $error');
       return null;
     }
+  }
+
+  Future<void> _showEpisodeSelector(BuildContext context) async {
+    final selection = await EpisodeSelectorDialog(
+      item: widget.item,
+      currentEpisode: _ep,
+      episodes: widget.episodes,
+      defaultDub: _dub,
+    ).show(context);
+    if (!mounted || selection == null) return;
+    await _switchEpisode(selection.episode, dub: selection.dub);
   }
 
   void _showPlayerSettings(BuildContext context) {
@@ -1052,9 +1068,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   Widget _bottomControls(BuildContext context) {
     final player = _player;
-    if (_mode != _PlayerMode.native || player == null || !_videoReady) {
-      return const SizedBox.shrink();
-    }
+    final native = _mode == _PlayerMode.native && player != null && _videoReady;
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -1067,28 +1081,49 @@ class _PlayerScreenState extends State<PlayerScreen> {
           ],
         ),
       ),
-      padding: const EdgeInsets.only(left: 8, right: 16, top: 18, bottom: 8),
+      padding: const EdgeInsets.only(left: 8, right: 8, top: 18, bottom: 8),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (native && player != null)
+            Row(
+              children: [
+                _timeText(
+                  context,
+                  player.stream.position,
+                  player.state.position,
+                ),
+                Expanded(child: _seekBar(context, player)),
+                _timeText(
+                  context,
+                  player.stream.duration,
+                  player.state.duration,
+                ),
+              ],
+            ),
           Row(
             children: [
-              _timeText(context, player.stream.position, player.state.position),
-              Expanded(child: _seekBar(context, player)),
-              _timeText(context, player.stream.duration, player.state.duration),
-            ],
-          ),
-          Row(
-            children: [
-              const Spacer(),
-              Text(
-                _sourceLabel,
-                style: context.appTextTheme.labelMedium?.copyWith(
-                  color: Colors.white38,
-                  letterSpacing: 1.2,
+              Flexible(
+                child: Text(
+                  _sourceLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.appTextTheme.labelMedium?.copyWith(
+                    color: Colors.white38,
+                    letterSpacing: 1.2,
+                  ),
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: () => _showPlayerSettings(context),
+                tooltip: 'Player settings',
+                icon: const Icon(
+                  Icons.settings_rounded,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
             ],
           ),
         ],
@@ -1536,39 +1571,64 @@ class _PlayerScreenState extends State<PlayerScreen> {
             onPressed: () => Navigator.pop(context),
             icon: Icon(PhosphorIcons.arrowLeft(), color: Colors.white, size: 26),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 4),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Text(
+              widget.item.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: context.appTextTheme.titleMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          _episodeSelectorButton(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _episodeSelectorButton(BuildContext context) {
+    return Tooltip(
+      message: 'Select episode',
+      child: InkResponse(
+        onTap: () => unawaited(_showEpisodeSelector(context)),
+        radius: 32,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 110),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  widget.item.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: context.appTextTheme.titleLarge?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
+                Flexible(
+                  child: Text(
+                    'EP $_ep',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.appTextTheme.labelMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.8,
+                    ),
                   ),
                 ),
-                Text(
-                  'EP $_ep',
-                  style: context.appTextTheme.bodyMedium?.copyWith(
-                    color: Colors.white70,
-                  ),
+                const SizedBox(width: 4),
+                const Icon(
+                  Icons.expand_more_rounded,
+                  size: 18,
+                  color: Colors.white70,
                 ),
               ],
             ),
           ),
-          IconButton(
-            onPressed: () => _showPlayerSettings(context),
-            tooltip: 'Player settings',
-            icon: Icon(
-              Icons.settings_rounded,
-              color: Colors.white,
-              size: 24,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
