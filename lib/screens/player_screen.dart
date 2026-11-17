@@ -1015,30 +1015,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 ),
               ],
             ),
-          Row(
-            children: [
-              Flexible(
-                child: Text(
-                  _sourceLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: context.appTextTheme.labelMedium?.copyWith(
-                    color: Colors.white38,
-                    letterSpacing: 1.2,
-                  ),
-                ),
+          SizedBox(
+            width: double.infinity,
+            child: Text(
+              _sourceLabel,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: context.appTextTheme.labelMedium?.copyWith(
+                color: Colors.white38,
+                letterSpacing: 1.2,
               ),
-              const SizedBox(width: 8),
-              IconButton(
-                onPressed: () => _showPlayerSettings(context),
-                tooltip: 'Player settings',
-                icon: const Icon(
-                  Icons.settings_rounded,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-            ],
+            ),
           ),
         ],
       ),
@@ -1494,7 +1481,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
+          IconButton(
+            onPressed: () => _showPlayerSettings(context),
+            tooltip: 'Player settings',
+            icon: const Icon(
+              Icons.settings_rounded,
+              color: Colors.white,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 4),
           _episodeSelectorButton(context),
         ],
       ),
