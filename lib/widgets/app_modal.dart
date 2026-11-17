@@ -55,7 +55,7 @@ class AppDialog<T> extends AppModal<T> {
                   ),
                 ],
               ),
-              content,
+              Flexible(child: content),
             ],
           );
         }
