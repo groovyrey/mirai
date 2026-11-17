@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../state/app_state.dart';
-import '../../theme/app_theme.dart';
 import '../app_modal.dart';
 import 'player_settings_fields.dart';
 import 'player_settings_option.dart';
 
-class PlayerSettingsDialog extends AppModal<void> {
+class PlayerSettingsDialog extends AppModal<Object> {
   const PlayerSettingsDialog({
     required this.sources,
     required this.source,
@@ -42,8 +41,8 @@ class PlayerSettingsDialog extends AppModal<void> {
   final ValueChanged<double> onSubtitleBackgroundChanged;
 
   @override
-  Future<void?> show(BuildContext context) {
-    return AppDialog<void>(
+  Future<Object?> show(BuildContext context) {
+    return AppDialog<Object>(
       title: 'Player settings',
       builder: (_) => _PlayerSettingsView(settings: this),
     ).show(context);

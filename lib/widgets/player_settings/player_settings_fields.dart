@@ -36,7 +36,7 @@ class SettingsDropdownRow<T> extends StatelessWidget {
           ),
           Expanded(
             child: DropdownButtonFormField<T?>(
-              value: value,
+              initialValue: value,
               isExpanded: true,
               isDense: true,
               menuMaxHeight: 280,
