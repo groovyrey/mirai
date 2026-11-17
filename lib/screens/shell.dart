@@ -17,7 +17,7 @@ import 'settings_screen.dart';
 import 'trending_screen.dart';
 import 'update_screen.dart';
 
-/// Mirai's shell: a wordmark header with a drawer navigation.
+/// Mirai's shell: a search header with a drawer navigation.
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
 
@@ -32,14 +32,13 @@ class _AppShellState extends State<AppShell> {
   /// on one check and one cache window.
   final UpdateNotifier _updates = UpdateNotifier();
 
-  static const _settingsIndex = 5;
+  static const _settingsIndex = 4;
 
   static const _tabs = [
     (icon: Icons.play_arrow_rounded, label: 'Home'),
     (icon: Icons.local_fire_department_rounded, label: 'Trending'),
     (icon: Icons.grid_view_rounded, label: 'Browse'),
     (icon: Icons.bookmark_rounded, label: 'Saved'),
-    (icon: Icons.search_rounded, label: 'Find'),
     (icon: Icons.settings_rounded, label: 'Settings'),
   ];
 
@@ -86,6 +85,17 @@ class _ShellScaffold extends StatelessWidget {
   final int index;
   final ValueChanged<int> onTab;
 
+  void _openSearch(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (routeContext) => Scaffold(
+          backgroundColor: routeContext.appBackground,
+          body: const SearchScreen(autofocus: true, showBackButton: true),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final sections = [
@@ -93,7 +103,6 @@ class _ShellScaffold extends StatelessWidget {
       const TrendingScreen(key: ValueKey('trending')),
       const BrowseScreen(key: ValueKey('browse')),
       const SavedScreen(key: ValueKey('saved')),
-      const SearchScreen(key: ValueKey('search')),
       const SettingsScreen(key: ValueKey('settings')),
     ];
 
@@ -101,7 +110,10 @@ class _ShellScaffold extends StatelessWidget {
       drawer: _Drawer(selected: index, onSelect: onTab),
       body: Column(
         children: [
-          _Header(onTab: onTab),
+          _Header(
+            onSearch: () => _openSearch(context),
+            onTab: onTab,
+          ),
           Expanded(child: sections[index]),
         ],
       ),
@@ -110,8 +122,9 @@ class _ShellScaffold extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.onTab});
+  const _Header({required this.onSearch, required this.onTab});
 
+  final VoidCallback onSearch;
   final ValueChanged<int> onTab;
 
   /// Reads the version from the installed package so the header can never
@@ -155,9 +168,9 @@ class _Header extends StatelessWidget {
                 ),
                 tooltip: 'Menu',
               ),
-              const Spacer(),
-              const MiraiWordmark(size: 20),
-              const Spacer(),
+              const SizedBox(width: 12),
+              Expanded(child: _SearchButton(onTap: onSearch)),
+              const SizedBox(width: 12),
               GestureDetector(
                 onTap: () => onTab(_AppShellState._settingsIndex),
                 child: FutureBuilder<String>(
@@ -173,6 +186,48 @@ class _Header extends StatelessWidget {
                       ),
                     );
                   },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SearchButton extends StatelessWidget {
+  const _SearchButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: context.appBackground,
+      borderRadius: BorderRadius.circular(AppRadius.field),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.field),
+        child: Container(
+          height: 38,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.field),
+            border: Border.all(color: context.appOutline),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.search_rounded,
+                size: 18,
+                color: context.appOnSurfaceVariant,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Search',
+                style: context.appTextTheme.bodyMedium?.copyWith(
+                  color: context.appOnSurfaceVariant,
                 ),
               ),
             ],

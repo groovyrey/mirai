@@ -7,8 +7,11 @@ import 'screens/shell.dart';
 import 'state/app_state.dart';
 import 'theme/app_theme.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await SystemChrome.setPreferredOrientations(const [
+    DeviceOrientation.portraitUp,
+  ]);
   MediaKit.ensureInitialized();
   runApp(const MiraiApp());
 }
@@ -165,16 +168,25 @@ class _SplashScreenState extends State<SplashScreen>
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Accent bar - animate with first letter
+                    // Logo mark - animate with first letter
                     ScaleTransition(
                       scale: _letterFades[0],
                       child: Container(
-                        width: 46 * 0.18,
-                        height: 46 * 0.9,
-                        color: context.appAccent,
+                        width: 46,
+                        height: 46,
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white,
+                          border: Border.all(color: context.appOutline),
+                        ),
+                        child: Image.asset(
+                          'assets/logo/mirai_logo.png',
+                          fit: BoxFit.contain,
+                        ),
                       ),
                     ),
-                    SizedBox(width: 46 * 0.12),
+                    const SizedBox(width: 12),
                     // Individual animated letters
                     Row(
                       mainAxisSize: MainAxisSize.min,

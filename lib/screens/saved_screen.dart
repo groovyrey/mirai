@@ -217,9 +217,9 @@ class _ContinueTile extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 10),
-                      Container(height: 3, width: 66, color: context.appOutline),
                       Expanded(
                         child: FractionallySizedBox(
+                          alignment: Alignment.centerLeft,
                           widthFactor: progress,
                           child: Container(height: 3, color: context.appAccent),
                         ),

@@ -149,6 +149,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void initState() {
     super.initState();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    SystemChrome.setPreferredOrientations(const [
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
     final app = context.read<AppState>();
     _hardwareDecode = app.hardwareDecode;
     _defaultRate = app.defaultSpeed;
@@ -190,6 +196,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
   @override
   void dispose() {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    unawaited(SystemChrome.setPreferredOrientations(const [
+      DeviceOrientation.portraitUp,
+    ]));
     unawaited(WakelockPlus.disable());
     unawaited(_saveFinalProgress());
     unawaited(_positionSub?.cancel());
@@ -946,6 +955,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   children: [
                     for (final item in items)
                       ListTile(
+                        selected: item.current,
+                        selectedTileColor: context.appAccentSoft,
+                        selectedColor: context.appAccent,
                         leading: Icon(
                           item.current
                               ? PhosphorIcons.checkCircle()
@@ -957,12 +969,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
                         title: Text(
                           item.label,
                           style: context.appTextTheme.bodyMedium?.copyWith(
-                            color: context.appOnSurface,
+                            color: item.current
+                                ? context.appAccent
+                                : context.appOnSurface,
+                            fontWeight: item.current
+                                ? FontWeight.w600
+                                : FontWeight.w400,
                           ),
                         ),
-                        trailing: item.current
-                            ? Icon(PhosphorIcons.check(), color: context.appAccent)
-                            : null,
                         onTap: () {
                           Navigator.pop(sheetContext);
                           if (!item.current) _switchSource(item.name);

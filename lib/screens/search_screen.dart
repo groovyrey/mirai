@@ -8,10 +8,16 @@ import '../theme/app_theme.dart';
 import '../widgets/anime_card.dart';
 import 'detail_screen.dart';
 
-/// Search ("Find"): a full-width query field plus the poster grid results.
-/// Submit-driven like a broadcast channel guide, not debounced-on-every-keystroke.
+/// Search: a full-width query field plus the poster grid results.
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key});
+  const SearchScreen({
+    super.key,
+    this.autofocus = false,
+    this.showBackButton = false,
+  });
+
+  final bool autofocus;
+  final bool showBackButton;
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -26,6 +32,16 @@ class _SearchScreenState extends State<SearchScreen> {
   bool _searching = false;
   String? _error;
   Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.autofocus) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focus.requestFocus();
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -79,13 +95,28 @@ class _SearchScreenState extends State<SearchScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 4),
-            child: Text(
-              'Search the channel',
-              style: context.appTextTheme.displayMedium?.copyWith(
-                color: context.appOnSurface,
-                fontWeight: FontWeight.w700,
-              ),
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 4),
+            child: Row(
+              children: [
+                if (widget.showBackButton) ...[
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    color: context.appOnSurfaceVariant,
+                    padding: EdgeInsets.zero,
+                    constraints:
+                        const BoxConstraints(minWidth: 36, minHeight: 36),
+                    onPressed: () => Navigator.of(context).maybePop(),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                Text(
+                  'Search',
+                  style: context.appTextTheme.displayMedium?.copyWith(
+                    color: context.appOnSurface,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ),
           ),
           Padding(
