@@ -168,7 +168,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _sourceKind = widget.sourceKind ?? 'aniwatch';
     _sv = widget.sv;
     _ep = widget.ep;
-    _dub = _dub;
+    _dub = widget.dub;
     _embed = widget.embed;
     unawaited(_bootstrap());
   }
