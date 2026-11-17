@@ -9,6 +9,7 @@ import 'episode_selector_fields.dart';
 
 class EpisodeSelectorContent extends StatefulWidget {
   const EpisodeSelectorContent({
+    super.key,
     required this.item,
     required this.currentEpisode,
     required this.episodes,

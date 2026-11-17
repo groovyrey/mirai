@@ -1085,7 +1085,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (native && player != null)
+          if (native)
             Row(
               children: [
                 _timeText(

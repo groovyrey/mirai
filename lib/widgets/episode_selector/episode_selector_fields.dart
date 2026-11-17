@@ -6,6 +6,7 @@ import 'episode_selection.dart';
 
 class EpisodeSearchField extends StatelessWidget {
   const EpisodeSearchField({
+    super.key,
     required this.controller,
     required this.onChanged,
   });
@@ -49,6 +50,7 @@ class EpisodeSearchField extends StatelessWidget {
 
 class EpisodeTile extends StatelessWidget {
   const EpisodeTile({
+    super.key,
     required this.episode,
     required this.currentEpisode,
     required this.defaultDub,
