@@ -14,15 +14,6 @@ import '../widgets/app_modal.dart';
 import '../widgets/next_episode_countdown.dart';
 import 'player_screen.dart';
 
-/// Legacy per-title source preference. The item page no longer exposes a
-/// source picker; source selection now lives in the player's source sheet.
-enum _PlaySource { zoko, dood }
-
-/// Maps a persisted source preference (0 = Aniwaves, anything else or unset =
-/// ZokoAnime) onto the source enum. ZokoAnime is the default.
-_PlaySource _sourceForSv(int? sv) =>
-    sv == 0 ? _PlaySource.dood : _PlaySource.zoko;
-
 class DetailScreen extends StatefulWidget {
   const DetailScreen({
     super.key,
@@ -90,10 +81,7 @@ class _DetailScreenState extends State<DetailScreen> {
           );
           final dub = widget.initialDub ?? false;
           if (mounted) {
-            final app = context.read<AppState>();
-            final pref = app.preferredSv(widget.item.id.toString());
-            _play(context, widget.item, targetEp, dub,
-                source: _sourceForSv(pref));
+            _play(context, widget.item, targetEp, dub);
           }
         }
         return;
@@ -150,7 +138,6 @@ class _DetailScreenState extends State<DetailScreen> {
     final episodes = detail.episodes;
     final app = context.watch<AppState>();
     final defaultDub = app.audioMode == AudioMode.dub;
-    final prefSv = app.preferredSv(item.id.toString());
 
     return CustomScrollView(
       slivers: [
@@ -218,8 +205,7 @@ class _DetailScreenState extends State<DetailScreen> {
                   episode: episodes[index],
                   hasDub: hasDub,
                   defaultDub: defaultDub,
-                  onTap: (dub) => _play(context, item, episodes[index], dub,
-                      source: _sourceForSv(prefSv)),
+                  onTap: (dub) => _play(context, item, episodes[index], dub),
                 );
               },
             ),
@@ -490,17 +476,14 @@ class _DetailScreenState extends State<DetailScreen> {
     BuildContext context,
     AnimeItem item,
     Episode episode,
-    bool dub, {
-    _PlaySource source = _PlaySource.zoko,
-  }) {
-    final dood = source == _PlaySource.dood;
+    bool dub,
+  ) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => PlayerScreen(
           item: item,
           ep: episode.ep,
           dub: dub,
-          sourceKind: dood ? 'aniwaves' : 'aniwatch',
           episodes: _detail?.episodes,
         ),
       ),
@@ -514,7 +497,6 @@ class _DetailScreenState extends State<DetailScreen> {
     if (detail == null || detail.episodes.isEmpty) return;
     final app = context.read<AppState>();
     final defaultDub = app.audioMode == AudioMode.dub;
-    final prefSv = app.preferredSv(detail.item.id.toString());
     final hasDub = detail.dubEps > 0;
     unawaited(
       AppBottomSheet<void>(
@@ -528,8 +510,7 @@ class _DetailScreenState extends State<DetailScreen> {
           defaultDub: defaultDub,
           onPlay: (episode, dub) {
             Navigator.pop(sheetContext);
-            _play(context, detail.item, episode, dub,
-                source: _sourceForSv(prefSv));
+            _play(context, detail.item, episode, dub);
           },
         ),
       ).show(context),

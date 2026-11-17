@@ -89,67 +89,93 @@ class _EpisodeSelectorContentState extends State<EpisodeSelectorContent> {
           controller: _controller,
           onChanged: () => setState(() {}),
         ),
-        if (_loading)
-          Expanded(
-            child: Center(
-              child: CircularProgressIndicator(color: context.appAccent),
-            ),
-          )
-        else if (_error != null)
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(
-                _error!,
-                textAlign: TextAlign.center,
-                style: context.appTextTheme.bodyMedium?.copyWith(
-                  color: context.appOnSurfaceVariant,
-                ),
-              ),
-            ),
-          )
-        else if (_episodes.isEmpty)
-          Expanded(
-            child: Center(
-              child: Text(
-                'No episodes are available for this title.',
-                style: context.appTextTheme.bodyMedium?.copyWith(
-                  color: context.appOnSurfaceVariant,
-                ),
-              ),
-            ),
-          )
-        else if (matches.isEmpty)
-          Expanded(
-            child: Center(
-              child: Text(
-                'No episode matches "$query".',
-                style: context.appTextTheme.bodyMedium?.copyWith(
-                  color: context.appOnSurfaceVariant,
-                ),
-              ),
-            ),
-          )
-        else
-          Flexible(
-            child: ListView.separated(
-              padding: const EdgeInsets.only(bottom: 8),
-              itemCount: matches.length,
-              separatorBuilder: (_, __) => Divider(
-                height: 1,
-                thickness: 1,
-                color: context.appOutline,
-              ),
-              itemBuilder: (context, index) => EpisodeTile(
-                episode: matches[index],
-                currentEpisode: widget.currentEpisode,
-                defaultDub: widget.defaultDub,
-                hasDub: hasDub,
-                onSelected: (selection) => Navigator.pop(context, selection),
-              ),
-            ),
+        Flexible(
+          fit: FlexFit.loose,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final maxBodyHeight = constraints.hasBoundedHeight
+                  ? constraints.maxHeight
+                  : 360.0;
+              final body = _buildBody(context, matches, hasDub, query);
+              return ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: maxBodyHeight),
+                child: SingleChildScrollView(child: body),
+              );
+            },
           ),
+        ),
       ],
+    );
+  }
+
+  Widget _buildBody(
+    BuildContext context,
+    List<Episode> matches,
+    bool hasDub,
+    String query,
+  ) {
+    if (_loading) {
+      return SizedBox(
+        height: 180,
+        child: Center(
+          child: CircularProgressIndicator(color: context.appAccent),
+        ),
+      );
+    }
+    if (_error != null) {
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          _error!,
+          textAlign: TextAlign.center,
+          style: context.appTextTheme.bodyMedium?.copyWith(
+            color: context.appOnSurfaceVariant,
+          ),
+        ),
+      );
+    }
+    if (_episodes.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          'No episodes are available for this title.',
+          textAlign: TextAlign.center,
+          style: context.appTextTheme.bodyMedium?.copyWith(
+            color: context.appOnSurfaceVariant,
+          ),
+        ),
+      );
+    }
+    if (matches.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          'No episode matches "$query".',
+          textAlign: TextAlign.center,
+          style: context.appTextTheme.bodyMedium?.copyWith(
+            color: context.appOnSurfaceVariant,
+          ),
+        ),
+      );
+    }
+    return ListView.separated(
+      shrinkWrap: true,
+      primary: false,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.only(bottom: 8),
+      itemCount: matches.length,
+      separatorBuilder: (_, __) => Divider(
+        height: 1,
+        thickness: 1,
+        color: context.appOutline,
+      ),
+      itemBuilder: (context, index) => EpisodeTile(
+        episode: matches[index],
+        currentEpisode: widget.currentEpisode,
+        defaultDub: widget.defaultDub,
+        hasDub: hasDub,
+        onSelected: (selection) => Navigator.pop(context, selection),
+      ),
     );
   }
 }

@@ -16,15 +16,6 @@ class AppConfig {
     final over = aniwavesBaseOverride.trim();
     return over.isNotEmpty ? over : aniwavesBase;
   }
-
-  /// aniwatch.lu source resolver. Lives on the same worker as a sibling group,
-  /// so the settings override (which names the aniwaves base) maps across by
-  /// swapping the trailing group instead of needing its own field.
-  static String get aniwatchBase {
-    final over = aniwavesBaseOverride.trim();
-    if (over.isEmpty) return '$workerRoot/api/aniwatch';
-    return '${over.replaceFirst(RegExp(r'/api/aniwaves$'), '')}/api/aniwatch';
-  }
 }
 
 /// Host suffixes a Mirai embed player may navigate to as the main frame.
