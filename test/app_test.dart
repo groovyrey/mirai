@@ -19,7 +19,6 @@ import 'package:mirai/services/watch_history.dart';
 import 'package:mirai/state/app_state.dart';
 import 'package:mirai/state/update_notifier.dart';
 import 'package:mirai/utils/semver.dart';
-import 'package:mirai/widgets/mirai_wordmark.dart';
 import 'package:mirai/widgets/release_notes.dart';
 
 void main() {
@@ -49,7 +48,7 @@ void main() {
 
     expect(find.byType(SplashScreen), findsNothing);
     expect(find.byType(AppShell), findsOneWidget);
-    expect(find.byType(MiraiWordmark), findsWidgets);
+    expect(find.byIcon(Icons.search_rounded), findsOneWidget);
   });
 
   testWidgets('shell navigation drawer lists every section', (tester) async {
@@ -60,9 +59,10 @@ void main() {
 
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Trending'), findsOneWidget);
+    expect(find.text('Browse'), findsOneWidget);
     expect(find.text('Saved'), findsOneWidget);
-    expect(find.text('Find'), findsOneWidget);
     expect(find.text('Settings'), findsOneWidget);
+    expect(find.text('Find'), findsNothing);
   });
 
   testWidgets('saved shows its empty state', (tester) async {
