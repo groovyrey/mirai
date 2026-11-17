@@ -740,29 +740,30 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Future<void> _startDood() async {
     setState(() => _mode = _PlayerMode.loading);
     _lastEmbedUrl = null;
-    _nativeAttempts = 0;
-    try {
-      final source = await _resolver.resolve(
-        widget.item,
-        _ep,
-        dub: _dub,
-        sv: _sv,
-        proxy: true,
-        embed: _embed,
-      );
-      if (!mounted) return;
-      _activeServerName = source.serverName;
-      _lastEmbedUrl = source.embedUrl?.isNotEmpty == true
-          ? source.embedUrl
-          : (source.embedMode ? source.playUrl : null);
-      if (!_embed) {
+    for (var attempt = 0; attempt < 2; attempt++) {
+      _nativeAttempts = 0;
+      try {
+        final source = await _resolver.resolve(
+          widget.item,
+          _ep,
+          dub: _dub,
+          sv: _sv,
+          proxy: true,
+          embed: _embed,
+        );
+        if (!mounted) return;
+        _activeServerName = source.serverName;
+        _lastEmbedUrl = source.embedUrl?.isNotEmpty == true
+            ? source.embedUrl
+            : (source.embedMode ? source.playUrl : null);
+        if (_embed) break;
         if (await _tryPlayDoodClient(source)) return;
         if (!source.embedMode && await _playNative(source)) return;
+      } catch (error) {
+        debugPrint('[player] dood resolve failed: $error');
       }
-    } catch (error) {
-      debugPrint('[player] dood resolve failed: $error');
+      if (!mounted) return;
     }
-    if (!mounted) return;
     _startEmbedFallback(null, url: _lastEmbedUrl ?? _embedWrapUrl());
   }
 

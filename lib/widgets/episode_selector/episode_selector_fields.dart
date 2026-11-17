@@ -130,3 +130,41 @@ class EpisodeTile extends StatelessWidget {
     );
   }
 }
+
+class EpisodeLoadMoreButton extends StatelessWidget {
+  const EpisodeLoadMoreButton({
+    super.key,
+    required this.nextCount,
+    required this.onPressed,
+  });
+
+  final int nextCount;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+      child: SizedBox(
+        width: double.infinity,
+        child: OutlinedButton(
+          onPressed: onPressed,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: context.appAccent,
+            side: BorderSide(color: context.appOutline),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.field),
+            ),
+          ),
+          child: Text(
+            'Load $nextCount more',
+            style: context.appTextTheme.labelSmall?.copyWith(
+              letterSpacing: 1.5,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

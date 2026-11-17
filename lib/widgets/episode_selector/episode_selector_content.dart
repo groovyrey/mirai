@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/anime_item.dart';
 import '../../services/catalog_service.dart';
-import '../../theme/app_theme.dart';
+import 'episode_selector_body.dart';
 import 'episode_selector_fields.dart';
 
 class EpisodeSelectorContent extends StatefulWidget {
@@ -26,8 +26,11 @@ class EpisodeSelectorContent extends StatefulWidget {
 }
 
 class _EpisodeSelectorContentState extends State<EpisodeSelectorContent> {
+  static const _episodesPerPage = 10;
+
   late final TextEditingController _controller;
   List<Episode> _episodes = const [];
+  int _visibleEps = _episodesPerPage;
   bool _loading = false;
   String? _error;
 
@@ -42,6 +45,7 @@ class _EpisodeSelectorContentState extends State<EpisodeSelectorContent> {
       return;
     }
     _episodes = episodes;
+    _visibleEps = _episodesPerPage;
   }
 
   @override
@@ -59,6 +63,7 @@ class _EpisodeSelectorContentState extends State<EpisodeSelectorContent> {
       if (!mounted) return;
       setState(() {
         _episodes = detail.episodes;
+        _visibleEps = _episodesPerPage;
         _error = null;
         _loading = false;
       });
@@ -79,6 +84,10 @@ class _EpisodeSelectorContentState extends State<EpisodeSelectorContent> {
         : _episodes
             .where((episode) => episode.ep.toString().contains(query))
             .toList();
+    final visibleMatches = query.isEmpty && matches.length > _visibleEps
+        ? matches.sublist(0, _visibleEps)
+        : matches;
+    final remaining = matches.length - visibleMatches.length;
     final hasDub = _episodes.any((episode) => episode.dub);
 
     return Column(
@@ -96,7 +105,21 @@ class _EpisodeSelectorContentState extends State<EpisodeSelectorContent> {
               final maxBodyHeight = constraints.hasBoundedHeight
                   ? constraints.maxHeight
                   : 360.0;
-              final body = _buildBody(context, matches, hasDub, query);
+              final body = EpisodeSelectorBody(
+                loading: _loading,
+                error: _error,
+                matches: visibleMatches,
+                hasDub: hasDub,
+                query: query,
+                remaining: remaining,
+                perPage: _episodesPerPage,
+                currentEpisode: widget.currentEpisode,
+                defaultDub: widget.defaultDub,
+                onSelected: (selection) => Navigator.pop(context, selection),
+                onLoadMore: () => setState(() {
+                  _visibleEps += _episodesPerPage;
+                }),
+              );
               return ConstrainedBox(
                 constraints: BoxConstraints(maxHeight: maxBodyHeight),
                 child: SingleChildScrollView(child: body),
@@ -105,77 +128,6 @@ class _EpisodeSelectorContentState extends State<EpisodeSelectorContent> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildBody(
-    BuildContext context,
-    List<Episode> matches,
-    bool hasDub,
-    String query,
-  ) {
-    if (_loading) {
-      return SizedBox(
-        height: 180,
-        child: Center(
-          child: CircularProgressIndicator(color: context.appAccent),
-        ),
-      );
-    }
-    if (_error != null) {
-      return Padding(
-        padding: const EdgeInsets.all(24),
-        child: Text(
-          _error!,
-          textAlign: TextAlign.center,
-          style: context.appTextTheme.bodyMedium?.copyWith(
-            color: context.appOnSurfaceVariant,
-          ),
-        ),
-      );
-    }
-    if (_episodes.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.all(24),
-        child: Text(
-          'No episodes are available for this title.',
-          textAlign: TextAlign.center,
-          style: context.appTextTheme.bodyMedium?.copyWith(
-            color: context.appOnSurfaceVariant,
-          ),
-        ),
-      );
-    }
-    if (matches.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.all(24),
-        child: Text(
-          'No episode matches "$query".',
-          textAlign: TextAlign.center,
-          style: context.appTextTheme.bodyMedium?.copyWith(
-            color: context.appOnSurfaceVariant,
-          ),
-        ),
-      );
-    }
-    return ListView.separated(
-      shrinkWrap: true,
-      primary: false,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.only(bottom: 8),
-      itemCount: matches.length,
-      separatorBuilder: (_, __) => Divider(
-        height: 1,
-        thickness: 1,
-        color: context.appOutline,
-      ),
-      itemBuilder: (context, index) => EpisodeTile(
-        episode: matches[index],
-        currentEpisode: widget.currentEpisode,
-        defaultDub: widget.defaultDub,
-        hasDub: hasDub,
-        onSelected: (selection) => Navigator.pop(context, selection),
-      ),
     );
   }
 }
