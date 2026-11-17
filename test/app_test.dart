@@ -513,7 +513,7 @@ void main() {
       final source = ResolvedSource.tryFromJson({
         'ok': true,
         'playUrl': 'https://example.com/master.m3u8',
-        'provider': 'zokoanime',
+        'provider': 'vhscdn',
         'subtitles': [
           {'url': 'https://example.com/en.vtt', 'label': 'English'},
           {'url': '', 'label': 'Empty'},
